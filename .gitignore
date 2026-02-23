@@ -1,0 +1,7 @@
+# Ignore large datasets
+*.csv
+
+# Python
+__pycache__/
+.venv/
+env/
