@@ -11,6 +11,7 @@ def create_app() -> Dash:
 
     # Load data (wide + long)
     wales_df, wales_df_long = load_data()
+    # new comment
 
     # Set layout
     app.layout = create_layout(wales_df_long)
