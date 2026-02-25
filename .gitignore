@@ -4,4 +4,19 @@
 # Python
 __pycache__/
 .venv/
+*.pyc
+
+# Virtual environments
+.venv/
+venv/
 env/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/
+
+# Environment variables
+.env
