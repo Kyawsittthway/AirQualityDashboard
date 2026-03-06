@@ -1,0 +1,904 @@
+/* ═══════════════════════════════════════════════════════
+   AirLens Dashboard v2 - Apple-Inspired Design
+   Sage Green Accents · Dark Mode · Rounded Cards
+   ═══════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+:root {
+  /* Colors - Apple Dark Mode with Sage Accents */
+  --bg-primary: #000000;
+  --bg-secondary: #1C1C1E;
+  --bg-tertiary: #2C2C2E;
+  --bg-elevated: #3A3A3C;
+  
+  /* Sage/Olive Green Palette */
+  --sage-50: #f6f8f4;
+  --sage-100: #e8f0e0;
+  --sage-200: #d1e0c2;
+  --sage-300: #a8c686;
+  --sage-400: #8fb569;
+  --sage-500: #739654;
+  --sage-600: #5a7741;
+  --sage-700: #475d33;
+  --sage-800: #3a4d2b;
+  
+  /* Extended Accent Colors for Better Visualization */
+  --purple-400: #A855F7;
+  --purple-500: #8B5CF6;
+  --blue-400: #60A5FA;
+  --blue-500: #3B82F6;
+  --cyan-400: #22D3EE;
+  --cyan-500: #06B6D4;
+  --teal-400: #2DD4BF;
+  --teal-500: #14B8A6;
+  --red-400: #F87171;
+  --red-500: #EF4444;
+  --red-600: #DC2626;
+  --orange-400: #FB923C;
+  --orange-500: #F59E0B;
+  --yellow-400: #FBBF24;
+  --yellow-500: #EAB308;
+  --green-400: #4ADE80;
+  --green-500: #10B981;
+  --pink-400: #F472B6;
+  --pink-500: #EC4899;
+  --indigo-400: #818CF8;
+  --indigo-500: #6366F1;
+  
+  /* Text */
+  --text-primary: #FFFFFF;
+  --text-secondary: rgba(255, 255, 255, 0.6);
+  --text-tertiary: rgba(255, 255, 255, 0.4);
+  
+  /* Borders & Dividers */
+  --border-primary: rgba(255, 255, 255, 0.1);
+  --border-secondary: rgba(255, 255, 255, 0.05);
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.4);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 10px 10px -5px rgba(0, 0, 0, 0.5);
+  
+  /* Spacing & Sizing */
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 22px;
+  --radius-pill: 999px;
+  
+  /* Typography - SF Pro inspired with Inter fallback */
+  --font-display: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  
+  /* Transitions */
+  --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Light Mode Variables */
+[data-theme="light"] {
+  --bg-primary: #FFFFFF;
+  --bg-secondary: #F5F5F7;
+  --bg-tertiary: #FFFFFF;
+  --bg-elevated: #FFFFFF;
+  
+  --text-primary: #000000;
+  --text-secondary: rgba(0, 0, 0, 0.6);
+  --text-tertiary: rgba(0, 0, 0, 0.4);
+  
+  --border-primary: rgba(0, 0, 0, 0.1);
+  --border-secondary: rgba(0, 0, 0, 0.05);
+  
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* ───────────────────────────────────────────────────────
+   GLOBAL RESET & BASE STYLES
+   ─────────────────────────────────────────────────────── */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* ───────────────────────────────────────────────────────
+   MAIN LAYOUT
+   ─────────────────────────────────────────────────────── */
+
+#app-container {
+  display: flex;
+  min-height: 100vh;
+  background: var(--bg-primary);
+}
+
+#main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  margin-left: 280px;
+}
+
+/* ───────────────────────────────────────────────────────
+   SIDEBAR - Apple Style
+   ─────────────────────────────────────────────────────── */
+
+#sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 280px;
+  height: 100vh;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-primary);
+  display: flex;
+  flex-direction: column;
+  padding: 24px 16px;
+  overflow-y: auto;
+  z-index: 100;
+}
+
+.sidebar-header {
+  margin-bottom: 32px;
+  padding: 0 8px;
+}
+
+.logo-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.logo-icon {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, var(--sage-400), var(--sage-600));
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--bg-primary);
+  box-shadow: var(--shadow-md);
+}
+
+.logo-text {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.logo-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  padding-left: 52px;
+  font-weight: 500;
+}
+
+/* Filter Sections */
+.filter-section {
+  margin-bottom: 24px;
+}
+
+.filter-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+  padding: 0 8px;
+}
+
+/* Apple-style Toggle Switch */
+.toggle-container {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-pill);
+  padding: 4px;
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+
+.toggle-option {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  color: var(--text-secondary);
+  border: none;
+  background: transparent;
+}
+
+.toggle-option.active {
+  background: var(--sage-500);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Reset Button */
+.reset-btn {
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  color: var(--red-400);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  margin-bottom: 16px;
+}
+
+.reset-btn:hover {
+  background: var(--bg-elevated);
+  border-color: var(--red-500);
+  transform: scale(1.02);
+}
+
+/* ───────────────────────────────────────────────────────
+   DASH DROPDOWNS - Apple Style
+   ─────────────────────────────────────────────────────── */
+
+.Select-control {
+  background: var(--bg-tertiary) !important;
+  border: 1px solid var(--border-primary) !important;
+  border-radius: var(--radius-md) !important;
+  padding: 4px 8px !important;
+  min-height: 44px !important;
+  transition: all var(--transition-base) !important;
+}
+
+.Select-control:hover,
+.is-focused .Select-control {
+  background: var(--bg-elevated) !important;
+  border-color: var(--sage-500) !important;
+  box-shadow: 0 0 0 3px rgba(143, 181, 105, 0.1) !important;
+}
+
+.Select-placeholder,
+.Select--single > .Select-control .Select-value {
+  color: var(--text-secondary) !important;
+  font-size: 15px !important;
+  line-height: 1.4 !important;
+}
+
+.Select-input > input {
+  color: var(--text-primary) !important;
+}
+
+.Select-menu-outer {
+  background: var(--bg-tertiary) !important;
+  border: 1px solid var(--border-primary) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-lg) !important;
+  margin-top: 8px !important;
+  overflow: hidden !important;
+}
+
+.Select-option {
+  background: transparent !important;
+  color: var(--text-primary) !important;
+  padding: 12px 16px !important;
+  font-size: 15px !important;
+  transition: background var(--transition-fast) !important;
+}
+
+.Select-option:hover,
+.Select-option.is-focused {
+  background: var(--bg-elevated) !important;
+}
+
+.Select-option.is-selected {
+  background: rgba(143, 181, 105, 0.15) !important;
+  color: var(--sage-300) !important;
+  font-weight: 600 !important;
+}
+
+/* Multi-select chips */
+.Select--multi .Select-value {
+  background: var(--sage-500) !important;
+  border: none !important;
+  border-radius: var(--radius-sm) !important;
+  color: var(--text-primary) !important;
+  padding: 4px 8px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  margin: 2px !important;
+}
+
+.Select--multi .Select-value-icon {
+  border: none !important;
+  padding: 0 4px !important;
+}
+
+.Select--multi .Select-value-icon:hover {
+  background: rgba(0, 0, 0, 0.2) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Date Picker */
+.DateRangePickerInput {
+  background: var(--bg-tertiary) !important;
+  border: 1px solid var(--border-primary) !important;
+  border-radius: var(--radius-md) !important;
+}
+
+.DateInput_input {
+  background: transparent !important;
+  color: var(--text-primary) !important;
+  font-size: 15px !important;
+  padding: 12px 16px !important;
+  font-weight: 500 !important;
+}
+
+.DateInput_input::placeholder {
+  color: var(--text-tertiary) !important;
+}
+
+.CalendarDay__selected,
+.CalendarDay__selected:active,
+.CalendarDay__selected:hover {
+  background: var(--sage-500) !important;
+  border-color: var(--sage-500) !important;
+  color: var(--text-primary) !important;
+}
+
+/* ───────────────────────────────────────────────────────
+   TOPBAR
+   ─────────────────────────────────────────────────────── */
+
+.topbar {
+  padding: 20px 32px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-primary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  backdrop-filter: blur(20px);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.topbar-title {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.topbar-badge {
+  background: var(--sage-500);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.topbar-meta {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.meta-pill {
+  background: var(--bg-tertiary);
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.meta-pill strong {
+  color: var(--text-primary);
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+/* ───────────────────────────────────────────────────────
+   CONTENT AREA
+   ─────────────────────────────────────────────────────── */
+
+.content {
+  flex: 1;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  overflow-y: auto;
+}
+
+/* ───────────────────────────────────────────────────────
+   KPI TILES - Apple Style
+   ─────────────────────────────────────────────────────── */
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.kpi-tile {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  transition: all var(--transition-base);
+  position: relative;
+  overflow: hidden;
+}
+
+.kpi-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--border-secondary);
+}
+
+.kpi-tile::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--sage-400), var(--sage-600));
+}
+
+.kpi-tile.status-danger::before {
+  background: linear-gradient(90deg, var(--red-500), var(--red-600));
+}
+
+.kpi-tile.status-warning::before {
+  background: linear-gradient(90deg, var(--orange-500), var(--yellow-400));
+}
+
+.kpi-tile.status-good::before {
+  background: linear-gradient(90deg, var(--green-400), var(--sage-500));
+}
+
+.kpi-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.kpi-label {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+}
+
+.kpi-icon {
+  width: 32px;
+  height: 32px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.kpi-value-section {
+  margin-bottom: 12px;
+}
+
+.kpi-value {
+  font-size: 48px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -2px;
+  margin-bottom: 4px;
+  background: linear-gradient(135deg, var(--sage-300), var(--sage-500));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.kpi-tile.status-danger .kpi-value {
+  background: linear-gradient(135deg, var(--red-400), var(--red-600));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.kpi-tile.status-warning .kpi-value {
+  background: linear-gradient(135deg, var(--orange-400), var(--yellow-400));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.kpi-unit {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.kpi-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  display: inline-block;
+}
+
+/* ───────────────────────────────────────────────────────
+   CARDS - Apple Rounded Style
+   ─────────────────────────────────────────────────────── */
+
+.card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+}
+
+.card-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-primary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-title {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.pill-btn {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-pill);
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.pill-btn:hover,
+.pill-btn.active {
+  background: var(--sage-500);
+  border-color: var(--sage-500);
+  color: var(--text-primary);
+}
+
+.card-body {
+  padding: 24px;
+}
+
+/* ───────────────────────────────────────────────────────
+   STATION CARDS (Room-style from reference)
+   ─────────────────────────────────────────────────────── */
+
+.station-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.station-card {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: all var(--transition-base);
+}
+
+.station-card:hover {
+  background: var(--bg-elevated);
+  transform: scale(1.02);
+}
+
+.station-info {
+  flex: 1;
+}
+
+.station-name {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.station-meta {
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+.gauge-container {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.circular-gauge {
+  position: relative;
+  width: 60px;
+  height: 60px;
+}
+
+.gauge-ring {
+  transform: rotate(-90deg);
+}
+
+.gauge-value {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 16px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.gauge-label {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+  text-align: center;
+}
+
+/* ───────────────────────────────────────────────────────
+   CHART STYLING
+   ─────────────────────────────────────────────────────── */
+
+.chart-container {
+  padding: 24px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-xl);
+}
+
+/* Plotly customization */
+.js-plotly-plot .plotly,
+.js-plotly-plot .plotly div {
+  font-family: var(--font-body) !important;
+}
+
+.js-plotly-plot .plotly .modebar {
+  background: transparent !important;
+}
+
+.js-plotly-plot .plotly .modebar-btn {
+  color: var(--text-tertiary) !important;
+}
+
+.js-plotly-plot .plotly .modebar-btn:hover {
+  background: var(--bg-tertiary) !important;
+  color: var(--text-primary) !important;
+}
+
+/* ───────────────────────────────────────────────────────
+   STATISTICS GRID
+   ─────────────────────────────────────────────────────── */
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.stat-cell {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-tertiary);
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.stat-value {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.stat-unit {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* ───────────────────────────────────────────────────────
+   COMPLETENESS BARS
+   ─────────────────────────────────────────────────────── */
+
+.completeness-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.completeness-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.completeness-label {
+  min-width: 120px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.completeness-bar-track {
+  flex: 1;
+  height: 8px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  position: relative;
+}
+
+.completeness-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  background: var(--sage-500);
+}
+
+.completeness-bar-fill.status-low {
+  background: var(--red-500);
+}
+
+.completeness-bar-fill.status-mid {
+  background: var(--orange-500);
+}
+
+.completeness-bar-fill.status-high {
+  background: var(--sage-500);
+}
+
+.completeness-percentage {
+  min-width: 50px;
+  text-align: right;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* ───────────────────────────────────────────────────────
+   ANIMATIONS
+   ─────────────────────────────────────────────────────── */
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-up {
+  animation: fadeInUp 0.4s ease both;
+}
+
+.kpi-tile:nth-child(1) { animation-delay: 0.05s; }
+.kpi-tile:nth-child(2) { animation-delay: 0.10s; }
+.kpi-tile:nth-child(3) { animation-delay: 0.15s; }
+.kpi-tile:nth-child(4) { animation-delay: 0.20s; }
+
+/* ───────────────────────────────────────────────────────
+   SCROLLBAR
+   ─────────────────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-elevated);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ───────────────────────────────────────────────────────
+   RESPONSIVE
+   ─────────────────────────────────────────────────────── */
+
+@media (max-width: 1024px) {
+  #main-content {
+    margin-left: 0;
+  }
+  
+  #sidebar {
+    transform: translateX(-100%);
+    transition: transform var(--transition-base);
+  }
+  
+  #sidebar.mobile-open {
+    transform: translateX(0);
+  }
+  
+  .kpi-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .content {
+    padding: 20px;
+  }
+  
+  .topbar {
+    padding: 16px 20px;
+  }
+  
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
