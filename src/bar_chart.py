@@ -25,10 +25,10 @@ limits = {'UK':{
     'O3':{'8h':120,'annual_allowed':10}
 },
 'WHO':{
-    'PM2.5':{'daily':15},
-    'PM10':{'daily':45},
-    'O3':{'8h':100},
-    'NO2':{'daily':25},
+    'PM2.5':{'annual':5},
+    'PM10':{'annual':15},
+    'O3':{'peak':60},
+    'NO2':{'annual':10},
     'SO2':{'daily':40}
 
 }}
@@ -50,7 +50,7 @@ app.layout = html.Div([
         multi=True,
         placeholder = 'Choose years'
     )),
-    
+    #add toggle to switch between the limits                                                                                                            
     daq.ToggleSwitch(
         id='who_toggle',
         label='WHO advisory',
@@ -83,55 +83,108 @@ def exceedance_bar(selected_sites,pollutant, selected_years,who_toggle):
                                     (wales_df_long['pollutants']==pollutant) &
                                     (wales_df_long['year']== year)
                                     ].copy()
-            if wales_data.empty: #if there is no data available
-                results.append({'Site':site,'Year':year,'Value':0,'exceeds':'No Data'})
+            if wales_data.empty: #if there is no data available then store this in results
+                results.append({'Site':site,'Year':year,'Value':0,'exceeds':'No Data','has_data':False})
             else:
                 #work out the pollutant specific exceedances or mean depending what data is available
-                if pollutant == 'PM2.5':
-                    value = wales_data['value'].mean()
-                    uk_limit = limits['UK']['PM2.5']['annual']
-                elif pollutant == 'PM10':
-                    daily_mean = wales_data.groupby(wales_data['date'].dt.date)['value'].mean()
-                    value = (daily_mean>50).sum()
-                    uk_limit= limits['UK']['PM10']['annual_allowed']
-                elif pollutant == 'SO2':
-                    daily_mean = wales_data.groupby(wales_data['date'].dt.date)['value'].mean()
-                    value = (daily_mean>125).sum()
-                    uk_limit = limits['UK']['SO2']['annual_allowed']
-                elif pollutant == 'NO2':
-                    value = (wales_data['value']>200).sum()
-                    uk_limit = limits['UK']['NO2']['annual_allowed']
-                elif pollutant == 'O3': #working out the rolling 8 hour mean then counting exceedances
-                    wales_data = wales_data.sort_values('date')
-                    wales_data['8h_mean'] = wales_data['value'].rolling(window=8, min_periods=8).mean()
-                    daily_max = wales_data.groupby(wales_data['date'].dt.date)['8h_mean'].max()
-                    value = (daily_max > 120).sum()
-                    uk_limit = limits['UK']['O3']['annual_allowed']
-                results.append({'Site':site,'Year':str(year),'Value':value})
+                #if who toggle is switched then use the who advisory limits 
+                if who_toggle:
+                    if pollutant in ['PM2.5','PM10','NO2']:
+                        #for these pollutants use annual mean
+                        value = wales_data['value'].mean()
+                        who_limit = limits['WHO'][pollutant]['annual']
+                    elif pollutant == 'O3':
+                        #workout the max 8hour rolling daily then workout the max rolling consecutive months
+                        wales_data = wales_data.sort_values('date')
+                        wales_data['8h_mean']= wales_data['value'].rolling(window=8,min_periods=8).mean()
+                        daily_max = (wales_data.groupby(wales_data['date'].dt.date)['8h_mean'].max().reset_index())
+                        daily_max['date']=pd.to_datetime(daily_max['date'])
+                        daily_max['month']=daily_max['date'].dt.to_period('M')
+                        monthly_mean = (daily_max.groupby('month')['8h_mean'].mean().reset_index())
+                        monthly_mean = monthly_mean.sort_values('month')
+                        monthly_mean['6m']=(monthly_mean['8h_mean'].rolling(window=6,min_periods=6).mean())
+                        value = monthly_mean['6m'].max()
+                        who_limit = limits['WHO']['O3']['peak']
+            
+                    elif pollutant == 'SO2':
+                        #use number of days exceeding the who limits 
+                        daily_mean = wales_data.groupby(wales_data['date'].dt.date)['value'].mean()
+                        value = (daily_mean>limits['WHO']['SO2']['daily']).sum()
+                    results.append({'Site':site,'Year':year,'Value':value,'has_data':True})
+                #if who toggle is off then use the uk limits
+                if not who_toggle:
+                    if pollutant == 'PM2.5':
+                        #use annual mean
+                        value = wales_data['value'].mean()
+                        uk_limit = limits['UK']['PM2.5']['annual']
+                    elif pollutant == 'PM10':
+                        #count days above daily limit
+                        daily_mean = wales_data.groupby(wales_data['date'].dt.date)['value'].mean()
+                        value = (daily_mean>50).sum()
+                        uk_limit= limits['UK']['PM10']['annual_allowed']
+                    elif pollutant == 'SO2':
+                        daily_mean = wales_data.groupby(wales_data['date'].dt.date)['value'].mean()
+                        value = (daily_mean>125).sum()
+                        uk_limit = limits['UK']['SO2']['annual_allowed']
+                    elif pollutant == 'NO2':
+                        #count hours above hourly limit
+                        value = (wales_data['value']>200).sum()
+                        uk_limit = limits['UK']['NO2']['annual_allowed']
+                    elif pollutant == 'O3': #working out the rolling 8 hour mean then counting exceedances
+                        wales_data = wales_data.sort_values('date')
+                        wales_data['8h_mean'] = wales_data['value'].rolling(window=8, min_periods=8).mean()
+                        daily_max = wales_data.groupby(wales_data['date'].dt.date)['8h_mean'].max()
+                        value = (daily_max > 120).sum()
+                        uk_limit = limits['UK']['O3']['annual_allowed']
+                    results.append({'Site':site,'Year':year,'Value':value,'has_data':True})
     #making the results into a dataframe
     results_data = pd.DataFrame(results)
-    #working out whether each value is within or above the uk limit 
-    results_data['exceeds']= results_data['Value'].apply(lambda x:'Above' if x>uk_limit else 'Within')
+    #working out whether each value is within or above the limit and storing the result in results
+    if who_toggle:
+        #so2 is number of exceedance days
+        if pollutant =='SO2':
+            results_data['exceeds']=results_data.apply(lambda row:'No Data' if not row['has_data'] else 'Above' if row['Value']>0 else 'Within',axis=1 )
+        elif pollutant == 'O3':
+            #comparing against seasonal peak of 6 months
+            limit = limits['WHO']['O3']['peak']
+            results_data['exceeds']=results_data.apply(lambda row:'No Data' if not row['has_data'] else 'Above' if row['Value']>limit else 'Within',axis=1 )
+        else:
+            #comparing annual mean against annual who limit
+            limit = limits['WHO'][pollutant]['annual']
+            results_data['exceeds'] = results_data.apply(lambda row: 'No Data' if not row['has_data'] else 'Above' if row['Value']> limit else 'Within',axis=1)
+    else:
+        #comparing uk results
+        results_data['exceeds']=results_data.apply(lambda row: 'No Data' if not row['has_data'] else 'Above' if row['Value'] > uk_limit else 'Within',axis=1)
+    
     results_data['Year'] = results_data['Year'].astype(int)
+    results_data['Year_string'] = results_data['Year'].astype(str)
+    results_data
     print(results_data),
     print(results_data.shape)
     
     #building bar chart
     fig = go.Figure()
-    #add a bar for each year in the sites selected and select the colours for if exceeding or not 
-    for year in sorted(results_data['Year'].unique()):
-        data_year = results_data[(results_data['Year']== year) ]
-        colours = ['red' if exceeds_limit == 'Above' else 'green' for exceeds_limit in data_year['exceeds']]
-        trace=go.Bar(
-            x=data_year['Site'],
-            y=data_year['Value'],
-            name = str(year),
-            marker_color = colours,
-            customdata = data_year[['Year','Value']],
-            hovertemplate= 'Site: %{x}<br>Year: %{customdata[0]}<br>Value: %{y}<extra></extra>') #hover info to see the value and year 
-        trace.showlegend = False #dont print the legend out for each individual trace
-        fig.add_trace(trace)
+    #sort the results so bars appear in each site but then done by year
+    results_data = results_data.sort_values(['Site','Year']).reset_index(drop=True)
+    #creating multi category axis with the year and then site underneath 
+    multi_category = [results_data['Site'],results_data['Year_string']]
+    #colouring the bars depending on exceedance 
+    colours = ['red' if exceeds_limit == 'Above' else 'green' if exceeds_limit == 'Within' else 'grey' for exceeds_limit in results_data['exceeds']]
+    #label the missing data as N/A to display above bar
+    results_data['label']=results_data.apply(lambda row:'N/A' if not row['has_data'] else '',axis = 1)
+    results_data['hover_label']=results_data.apply(lambda row :str(row['Value']) if row['has_data'] else '',axis = 1)
+    trace=go.Bar(
+    x=multi_category,
+    y=results_data['Value'],
+    marker_color = colours,
+    text=results_data['label'],
+    textposition = 'outside',
+    hovertext=results_data['hover_label'],
+    hovertemplate='Site: %{x[0]}<br>Year: %{x[1]}<br>Value:%{hovertext}<extra></extra>')
+    trace.showlegend = False #dont print the legend out for each individual trace
+    fig.add_trace(trace)
     #add legends to state what the colours mean
+    #fig.update_layout(hovermode='closest')
     fig.add_trace(go.Bar(
         x=[None], y=[None],
         marker_color='red',
@@ -142,28 +195,59 @@ def exceedance_bar(selected_sites,pollutant, selected_years,who_toggle):
         marker_color='green',
         name='Within Limit'
     ))
+    fig.add_trace(go.Scatter(
+        x=[None],y=[None],
+        mode='lines',
+        line=dict(color='red', dash='dash'),
+        name='Limit'
+    ))
     #put the y axis labels for each pollutant which vary depending on which one is selected
-    pollutant_labels = {
+    pollutant_labels_uk = {
     'PM2.5': 'PM2.5 annual mean (µg/m³)',
     'PM10': f'PM10 days exceeding {limits['UK']['PM10']['daily']}(µg/m³)',
     'NO2': f'NO2 hours exceeding {limits['UK']['NO2']['hourly']}(µg/m³)',
     'SO2': f'SO2 days exceeding {limits['UK']['SO2']['daily']}(µg/m³)',
     'O3': f'O3 days exceeding {limits['UK']['O3']['8h']}(µg/m³)'
     }
-
-    y_label = pollutant_labels.get(pollutant, 'Value')
+    pollutant_labels_who = {
+        'PM2.5': 'PM2.5 annual mean (µg/m³)',
+        'PM10': 'PM10 annual mean (µg/m³)',
+        'NO2':'NO2 annual mean(µg/m³)',
+        'SO2':f'SO2 days exceeding {limits['WHO']['SO2']['daily']}(µg/m³)',
+        'O3':'O3 seasonal peak mean(6 months) (µg/m³)'
+    }
+    #choose correct y axis label depending on toggle 
+    if who_toggle:
+        y_label = pollutant_labels_who.get(pollutant,'Value')
+    else:
+        y_label = pollutant_labels_uk.get(pollutant, 'Value')
 
     fig.update_layout(
     title=f'{pollutant} Exceedance for Selected Sites',
     barmode='group', #want a bar for each year
     yaxis_title=y_label)
 #adding the allowed annual limit as a dashed line as a reference
-    fig.add_hline(
-        y=uk_limit,
-        line_dash = 'dash',
-        line_color='red'
+    if who_toggle:
+        if pollutant =='O3':
+            fig.add_hline(
+                y=limits['WHO']['O3']['peak'],
+                line_dash = 'dash',
+                line_color='red'
+            )
+        elif pollutant !='SO2':
+            fig.add_hline(
+                y=limits['WHO'][pollutant]['annual'],
+                line_dash='dash',
+                line_color='red'
+            )
+    else:
 
-    )
+        fig.add_hline(
+            y=uk_limit,
+            line_dash = 'dash',
+            line_color='red'
+
+        )
    
     return fig 
 if __name__ == '__main__':
