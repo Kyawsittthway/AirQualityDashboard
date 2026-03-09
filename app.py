@@ -7,6 +7,7 @@ from dash import Dash, html, dcc, callback, Output, Input, State, no_update, cal
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+from components.dataloader import load_data
 from components.sidebar import create_sidebar
 from components.kpi_tiles import create_kpi_tiles
 from components.station_cards import create_station_cards_section, create_circular_gauge
@@ -18,28 +19,26 @@ from utils.calculations import (
     get_status_class,
     format_date_range,
     LIMITS,
-    POLLUTANT_DISPLAY_NAMES
 )
 
 
-wales_df = pd.read_csv("wales_air_quality_data_16.csv")
-wales_df["date"] = pd.to_datetime(wales_df["date"], errors="coerce")
+# Load the data
+wales_df, wales_df_long = load_data()
 
+
+# Define the pollutant list for your dropdown logic
 pollutant_cols = ["NO2", "PM2.5", "PM10", "O3", "SO2"]
 
-# long format for filtering
-wales_df_long = wales_df.copy()
-wales_df_long = wales_df_long.melt(
-    id_vars=["date", "site", "site_id", "code"],
-    value_vars=pollutant_cols,
-    var_name="pollutants",
-    value_name="value"
-)
-wales_df_long = wales_df_long.dropna(subset=["value"])
-
+POLLUTANT_DISPLAY_NAMES = {
+    'NO2': 'NO₂',
+    'PM2.5': 'PM₂.₅',
+    'PM10': 'PM₁₀',
+    'O3': 'O₃',
+    'SO2': 'SO₂'
+}
 
 app = Dash(__name__, suppress_callback_exceptions=True)
-app.title = "AirLens · UK Air Quality"
+app.title = "UK Air Quality"
 
 
 app.layout = html.Div(
@@ -211,18 +210,6 @@ app.layout = html.Div(
                                                                 html.Div(
                                                                     "μg/m³", className="stat-unit")
                                                             ]
-                                                        ),
-                                                        # IQR
-                                                        html.Div(
-                                                            className="stat-cell",
-                                                            children=[
-                                                                html.Div(
-                                                                    "IQR", className="stat-label"),
-                                                                html.Div(
-                                                                    "--", className="stat-value", id="stat-iqr"),
-                                                                html.Div(
-                                                                    "μg/m³", className="stat-unit")
-                                                            ]
                                                         )
                                                     ]
                                                 )
@@ -263,17 +250,17 @@ app.layout = html.Div(
                                                                 "letterSpacing": "-2px"
                                                             }
                                                         ),
-                                                        html.Div(
-                                                            "Overall Completeness",
-                                                            style={
-                                                                "fontSize": "12px",
-                                                                "color": "var(--text-tertiary)",
-                                                                "textTransform": "uppercase",
-                                                                "letterSpacing": "0.5px",
-                                                                "fontWeight": "600",
-                                                                "marginTop": "8px"
-                                                            }
-                                                        )
+                                                        # html.Div(
+                                                        #     "Overall Completeness",
+                                                        #     style={
+                                                        #         "fontSize": "12px",
+                                                        #         "color": "var(--text-tertiary)",
+                                                        #         "textTransform": "uppercase",
+                                                        #         "letterSpacing": "0.5px",
+                                                        #         "fontWeight": "600",
+                                                        #         "marginTop": "8px"
+                                                        #     }
+                                                        # )
                                                     ]
                                                 ),
                                                 # Per-station bars
@@ -287,27 +274,6 @@ app.layout = html.Div(
                                 )
                             ]
                         ),
-
-                        # Station Cards
-                        html.Div(
-                            className="card",
-                            style={"marginTop": "24px"},
-                            children=[
-                                html.Div(
-                                    className="card-header",
-                                    children=[
-                                        html.Div("Station Details",
-                                                 className="card-title")
-                                    ]
-                                ),
-                                html.Div(
-                                    className="card-body",
-                                    children=[
-                                        create_station_cards_section()
-                                    ]
-                                )
-                            ]
-                        )
                     ]
                 )
             ]
@@ -324,6 +290,7 @@ app.layout = html.Div(
     Input("toggle-who", "n_clicks"),
     State("threshold-store", "data")
 )
+
 def toggle_threshold(uk_clicks, who_clicks, current):
     """Handle WHO/UK threshold toggle."""
     if not uk_clicks and not who_clicks:
@@ -350,6 +317,8 @@ def toggle_threshold(uk_clicks, who_clicks, current):
     Input("toggle-light", "n_clicks"),
     State("theme-store", "data")
 )
+
+
 def toggle_theme(dark_clicks, light_clicks, current):
     """Handle dark/light theme toggle."""
     if not dark_clicks and not light_clicks:
@@ -365,6 +334,7 @@ def toggle_theme(dark_clicks, light_clicks, current):
         return "toggle-option active", "toggle-option", "dark", "dark"
     else:
         return "toggle-option", "toggle-option active", "light", "light"
+
 
 
 def register_callbacks(app, wales_df, wales_df_long):
@@ -408,8 +378,10 @@ def register_callbacks(app, wales_df, wales_df_long):
     global_min = wales_df_long["date"].min().date()
     global_max = wales_df_long["date"].max().date()
 
+
     def has_full_date_range(start_date, end_date):
         return bool(start_date) and bool(end_date)
+
 
     # Function to compute intersection window (date-only) for current selection
     def compute_allowed_bounds(sites, pollutant):
@@ -700,6 +672,8 @@ def register_callbacks(app, wales_df, wales_df_long):
         Input("date_range", "start_date"),
         Input("date_range", "end_date"),
     )
+
+
     def update_graph(selected_sites, pollutant, start_date, end_date):
         selected_sites = selected_sites or []
 
@@ -758,6 +732,8 @@ def register_callbacks(app, wales_df, wales_df_long):
     Input("date_range", "start_date"),
     Input("date_range", "end_date")
 )
+
+
 def update_topbar(sites, pollutant, start_date, end_date):
     """Update topbar metadata."""
     stations_text = f"{len(sites)}" if sites else "--"
@@ -788,6 +764,8 @@ def update_topbar(sites, pollutant, start_date, end_date):
     Input("date_range", "end_date"),
     Input("threshold-store", "data")
 )
+
+
 def update_kpi_tiles(sites, pollutant, start_date, end_date, threshold_type):
     """Update all KPI tiles."""
     if not sites or not pollutant or not start_date or not end_date:
@@ -885,6 +863,8 @@ def update_kpi_tiles(sites, pollutant, start_date, end_date, threshold_type):
     Input("date_range", "start_date"),
     Input("date_range", "end_date")
 )
+
+
 def update_summary_stats(sites, pollutant, start_date, end_date):
     """Update summary statistics."""
     if not sites or not pollutant or not start_date or not end_date:
@@ -916,6 +896,7 @@ def update_summary_stats(sites, pollutant, start_date, end_date):
     Input("date_range", "start_date"),
     Input("date_range", "end_date")
 )
+
 def update_completeness(sites, pollutant, start_date, end_date):
     """Update completeness panel."""
     if not sites or not pollutant or not start_date or not end_date:
@@ -958,118 +939,6 @@ def update_completeness(sites, pollutant, start_date, end_date):
         )
 
     return overall_text, bars
-
-
-@callback(
-    Output("station-cards-container", "children"),
-    Input("site_drop", "value"),
-    Input("pol_drop", "value"),
-    Input("date_range", "start_date"),
-    Input("date_range", "end_date"),
-    Input("threshold-store", "data")
-)
-def update_station_cards(sites, pollutant, start_date, end_date, threshold_type):
-    """Update station cards with gauges."""
-    if not sites or not pollutant or not start_date or not end_date:
-        return html.Div(
-            "Select stations and pollutant to view details",
-            style={"textAlign": "center",
-                   "color": "var(--text-tertiary)", "padding": "40px"}
-        )
-
-    cards = []
-
-    for site in sites:
-        site_df = wales_df[
-            (wales_df["site"] == site) &
-            (wales_df["date"] >= start_date) &
-            (wales_df["date"] <= end_date)
-        ]
-
-        if site_df.empty:
-            continue
-
-        # Calculate metrics
-        exceed_result = calculate_exceedance_rosie(
-            site_df, pollutant, threshold_type)
-        completeness = calculate_completeness(site_df, pollutant)
-
-        # Determine colors
-        if exceed_result['type'] == 'count':
-            exceed_color = "#EF4444" if exceed_result['value'] > exceed_result['limit'] else "#10B981"
-        else:
-            exceed_color = "#F59E0B"
-
-        comp_color = "#10B981" if completeness >= 85 else "#F59E0B" if completeness >= 75 else "#EF4444"
-
-        cards.append(
-            html.Div(
-                className="station-card",
-                children=[
-                    html.Div(
-                        className="station-info",
-                        children=[
-                            html.Div(site, className="station-name"),
-                            html.Div(
-                                f"{len(site_df)} observations",
-                                className="station-meta"
-                            )
-                        ]
-                    ),
-                    html.Div(
-                        className="gauge-container",
-                        children=[
-                            html.Div(
-                                children=[
-                                    dcc.Graph(
-                                        figure=create_circular_gauge(
-                                            exceed_result['value'],
-                                            exceed_result['limit'] if exceed_result['limit'] > 0 else 100,
-                                            exceed_color,
-                                            60
-                                        ),
-                                        config={'displayModeBar': False},
-                                        style={"height": "60px",
-                                               "width": "60px"}
-                                    ),
-                                    html.Div(
-                                        POLLUTANT_DISPLAY_NAMES.get(
-                                            pollutant, pollutant),
-                                        className="gauge-label"
-                                    )
-                                ]
-                            ),
-                            html.Div(
-                                children=[
-                                    dcc.Graph(
-                                        figure=create_circular_gauge(
-                                            completeness,
-                                            100,
-                                            comp_color,
-                                            60
-                                        ),
-                                        config={'displayModeBar': False},
-                                        style={"height": "60px",
-                                               "width": "60px"}
-                                    ),
-                                    html.Div(
-                                        "Complete", className="gauge-label")
-                                ]
-                            )
-                        ]
-                    )
-                ]
-            )
-        )
-
-    if not cards:
-        return html.Div(
-            "No data available for selected filters",
-            style={"textAlign": "center",
-                   "color": "var(--text-tertiary)", "padding": "40px"}
-        )
-
-    return html.Div(className="station-grid", children=cards)
 
 
 register_callbacks(app, wales_df, wales_df_long)
