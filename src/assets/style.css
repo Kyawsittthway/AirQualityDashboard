@@ -11,7 +11,7 @@
   --bg-secondary: #1C1C1E;
   --bg-tertiary: #2C2C2E;
   --bg-elevated: #3A3A3C;
-  
+
   /* Sage/Olive Green Palette */
   --sage-50: #f6f8f4;
   --sage-100: #e8f0e0;
@@ -22,7 +22,7 @@
   --sage-600: #5a7741;
   --sage-700: #475d33;
   --sage-800: #3a4d2b;
-  
+
   /* Extended Accent Colors for Better Visualization */
   --purple-400: #A855F7;
   --purple-500: #8B5CF6;
@@ -45,33 +45,33 @@
   --pink-500: #EC4899;
   --indigo-400: #818CF8;
   --indigo-500: #6366F1;
-  
+
   /* Text */
   --text-primary: #FFFFFF;
   --text-secondary: rgba(255, 255, 255, 0.6);
   --text-tertiary: rgba(255, 255, 255, 0.4);
-  
+
   /* Borders & Dividers */
   --border-primary: rgba(255, 255, 255, 0.1);
   --border-secondary: rgba(255, 255, 255, 0.05);
-  
+
   /* Shadows */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.4);
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 10px 10px -5px rgba(0, 0, 0, 0.5);
-  
+
   /* Spacing & Sizing */
   --radius-sm: 10px;
   --radius-md: 14px;
   --radius-lg: 18px;
   --radius-xl: 22px;
   --radius-pill: 999px;
-  
+
   /* Typography - SF Pro inspired with Inter fallback */
   --font-display: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
-  
+
   /* Transitions */
   --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-base: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -84,14 +84,14 @@
   --bg-secondary: #F5F5F7;
   --bg-tertiary: #FFFFFF;
   --bg-elevated: #FFFFFF;
-  
+
   --text-primary: #000000;
   --text-secondary: rgba(0, 0, 0, 0.6);
   --text-tertiary: rgba(0, 0, 0, 0.4);
-  
+
   --border-primary: rgba(0, 0, 0, 0.1);
   --border-secondary: rgba(0, 0, 0, 0.05);
-  
+
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
@@ -263,111 +263,347 @@ body {
 }
 
 /* ───────────────────────────────────────────────────────
-   DASH DROPDOWNS - Apple Style
+   DASH 4 DROPDOWN - FINAL COLOR FIX
    ─────────────────────────────────────────────────────── */
 
-.Select-control {
-  background: var(--bg-tertiary) !important;
-  border: 1px solid var(--border-primary) !important;
-  border-radius: var(--radius-md) !important;
-  padding: 4px 8px !important;
-  min-height: 44px !important;
-  transition: all var(--transition-base) !important;
+/* main shell */
+.dash-dropdown {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  min-height: 44px;
+  transition: all var(--transition-base);
+  color: var(--text-primary);
 }
 
-.Select-control:hover,
-.is-focused .Select-control {
-  background: var(--bg-elevated) !important;
-  border-color: var(--sage-500) !important;
-  box-shadow: 0 0 0 3px rgba(143, 181, 105, 0.1) !important;
-}
-
-.Select-placeholder,
-.Select--single > .Select-control .Select-value {
-  color: var(--text-secondary) !important;
-  font-size: 15px !important;
-  line-height: 1.4 !important;
-}
-
-.Select-input > input {
+/* closed trigger area */
+.dash-dropdown-trigger {
+  padding: 10px 12px;
   color: var(--text-primary) !important;
 }
 
-.Select-menu-outer {
+/* placeholder */
+.dash-dropdown-placeholder {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* selected value text */
+.dash-dropdown-value,
+.dash-dropdown-grid-container {
+  color: var(--text-primary) !important;
+}
+
+/* selected count text like "2 selected" */
+.dash-dropdown-value-count {
+  color: var(--text-primary) !important;
+  opacity: 0.85;
+}
+
+/* icons / caret / clear */
+.dash-dropdown-trigger svg,
+.dash-dropdown-trigger path {
+  fill: var(--text-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+/* popup menu */
+.dash-dropdown-content {
   background: var(--bg-tertiary) !important;
   border: 1px solid var(--border-primary) !important;
   border-radius: var(--radius-md) !important;
   box-shadow: var(--shadow-lg) !important;
-  margin-top: 8px !important;
+  margin-top: 6px !important;
   overflow: hidden !important;
-}
-
-.Select-option {
-  background: transparent !important;
   color: var(--text-primary) !important;
-  padding: 12px 16px !important;
-  font-size: 15px !important;
-  transition: background var(--transition-fast) !important;
 }
 
-.Select-option:hover,
-.Select-option.is-focused {
+/* every row in the dropdown list */
+.dash-dropdown-content *,
+.dash-dropdown-content label,
+.dash-dropdown-content span,
+.dash-dropdown-content div {
+  color: var(--text-primary) !important;
+}
+
+/* option rows */
+.dash-dropdown-content div[role="option"],
+.dash-dropdown-content [role="option"] {
+  padding: 12px 16px !important;
+  color: var(--text-primary) !important;
+  background: transparent !important;
+  transition: background var(--transition-fast);
+}
+
+/* hover */
+.dash-dropdown-content div[role="option"]:hover,
+.dash-dropdown-content [role="option"]:hover {
   background: var(--bg-elevated) !important;
 }
 
-.Select-option.is-selected {
+/* selected option in menu */
+.dash-dropdown-content div[role="option"][aria-selected="true"],
+.dash-dropdown-content [role="option"][aria-selected="true"] {
   background: rgba(143, 181, 105, 0.15) !important;
   color: var(--sage-300) !important;
   font-weight: 600 !important;
 }
 
-/* Multi-select chips */
-.Select--multi .Select-value {
-  background: var(--sage-500) !important;
-  border: none !important;
-  border-radius: var(--radius-sm) !important;
-  color: var(--text-primary) !important;
-  padding: 4px 8px !important;
-  font-size: 13px !important;
-  font-weight: 600 !important;
-  margin: 2px !important;
+/* checkboxes in multi-select menu */
+.dash-dropdown-content input[type="checkbox"] {
+  accent-color: var(--sage-500);
 }
 
-.Select--multi .Select-value-icon {
-  border: none !important;
-  padding: 0 4px !important;
+/* focus glow */
+.dash-dropdown:focus-within {
+  border-color: var(--sage-500);
+  box-shadow: 0 0 0 3px rgba(143, 181, 105, 0.1);
 }
 
-.Select--multi .Select-value-icon:hover {
-  background: rgba(0, 0, 0, 0.2) !important;
-  color: var(--text-primary) !important;
-}
-
-/* Date Picker */
-.DateRangePickerInput {
+/* dropdown search box */
+.dash-dropdown-content input,
+.dash-dropdown-content input:focus,
+.dash-dropdown-content input[type="text"] {
   background: var(--bg-tertiary) !important;
+  background-color: var(--bg-tertiary) !important;
+  color: var(--text-primary) !important;
+  -webkit-text-fill-color: var(--text-primary) !important;
   border: 1px solid var(--border-primary) !important;
-  border-radius: var(--radius-md) !important;
+  box-shadow: none !important;
+  outline: none !important;
 }
 
-.DateInput_input {
-  background: transparent !important;
-  color: var(--text-primary) !important;
-  font-size: 15px !important;
-  padding: 12px 16px !important;
-  font-weight: 500 !important;
+.dash-dropdown-content input::placeholder {
+  color: rgba(255, 255, 255, 0.7) !important;
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.7) !important;
 }
 
-.DateInput_input::placeholder {
-  color: var(--text-tertiary) !important;
+/* ───────────────────────────────────────────────────────
+   DATE RANGE PICKER - FLAT SIDEBAR STYLE
+   ─────────────────────────────────────────────────────── */
+
+/* visible control */
+#date_range-wrapper,
+.airlens-date-range,
+.airlens-date-range .dash-datepicker-input-wrapper {
+  width: 100% !important;
+  min-height: 44px !important;
+  display: flex !important;
+  align-items: center !important;
+  background: var(--bg-secondary) !important;
+  border: 1px solid var(--border-primary) !important;
+  border-radius: 6px !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  outline: none !important;
+  box-shadow: none !important;
+  transition: all var(--transition-base) !important;
 }
 
-.CalendarDay__selected,
-.CalendarDay__selected:active,
-.CalendarDay__selected:hover {
-  background: var(--sage-500) !important;
+/* focus */
+#date_range-wrapper:focus-within,
+.airlens-date-range:focus-within,
+.airlens-date-range .dash-datepicker-input-wrapper:focus-within {
   border-color: var(--sage-500) !important;
+  box-shadow: 0 0 0 3px rgba(143, 181, 105, 0.1) !important;
+}
+
+/* direct children only */
+#date_range-wrapper>div,
+.airlens-date-range>div,
+.airlens-date-range .dash-datepicker-input-wrapper>div {
+  background: var(--bg-secondary) !important;
+  border: none !important;
+  box-shadow: none !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+/* inputs */
+#date_range-wrapper input,
+.airlens-date-range input,
+.airlens-date-range .dash-datepicker-input {
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
   color: var(--text-primary) !important;
+  -webkit-text-fill-color: var(--text-primary) !important;
+  font-size: 15px !important;
+  font-family: var(--font-body) !important;
+  padding: 10px 12px !important;
+}
+
+/* placeholders */
+#date_range-wrapper input::placeholder,
+.airlens-date-range input::placeholder,
+.airlens-date-range .dash-datepicker-input::placeholder {
+  color: var(--text-secondary) !important;
+  -webkit-text-fill-color: var(--text-secondary) !important;
+}
+
+/* date picker separator arrow */
+.dash-datepicker-range-arrow,
+.dash-datepicker-range-arrow *,
+.dash-datepicker-range-arrow svg,
+.dash-datepicker-range-arrow path {
+  color: var(--sage-500) !important;
+  fill: var(--sage-500) !important;
+  stroke: var(--sage-500) !important;
+  opacity: 1 !important;
+}
+
+
+/* popup shell */
+[role="dialog"],
+.DateRangePicker_picker,
+.DayPicker,
+.DayPicker__horizontal,
+.DayPicker_transitionContainer {
+  background: var(--bg-secondary) !important;
+  border: 1px solid var(--border-primary) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-xl) !important;
+}
+
+/* month/year controls */
+[role="dialog"] input,
+[role="dialog"] select,
+[role="dialog"] button,
+[role="dialog"] .dash-datepicker-calendar-month,
+[role="dialog"] .dash-datepicker-calendar-year,
+[role="dialog"] .dash-datepicker-month-dropdown,
+[role="dialog"] .dash-datepicker-year-dropdown,
+[role="dialog"] .dash-datepicker-month-select,
+[role="dialog"] .dash-datepicker-year-select {
+  background: var(--bg-tertiary) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-primary) !important;
+  box-shadow: none !important;
+}
+
+/* calendar text */
+.dash-datepicker-calendar,
+.dash-datepicker-calendar th,
+.dash-datepicker-calendar td,
+.dash-datepicker-calendar span,
+.dash-datepicker-calendar button,
+.dash-datepicker-calendar div,
+.dash-datepicker-calendar-date-inside,
+.dash-datepicker-calendar-date-outside {
+  color: var(--text-primary) !important;
+}
+
+/* selected days */
+.dash-datepicker-calendar-date-selected,
+.dash-datepicker-calendar-date-selected:hover,
+[aria-selected="true"] {
+  background: var(--sage-500) !important;
+  color: #fff !important;
+  border-radius: 8px !important;
+}
+
+/* exact dropdown search input fix */
+input.dash-dropdown-search,
+input.dash-dropdown-search:focus,
+input.dash-dropdown-search[type="search"] {
+  background: var(--bg-tertiary) !important;
+  background-color: var(--bg-tertiary) !important;
+  color: var(--text-primary) !important;
+  -webkit-text-fill-color: var(--text-primary) !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+}
+
+/* search container behind the input */
+.dash-dropdown-search-container {
+  background: var(--bg-tertiary) !important;
+  border-bottom: 1px solid var(--border-primary) !important;
+}
+
+/* placeholder */
+input.dash-dropdown-search::placeholder {
+  color: rgba(255, 255, 255, 0.7) !important;
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* remove browser search decorations */
+input.dash-dropdown-search::-webkit-search-decoration,
+input.dash-dropdown-search::-webkit-search-cancel-button,
+input.dash-dropdown-search::-webkit-search-results-button,
+input.dash-dropdown-search::-webkit-search-results-decoration {
+  -webkit-appearance: none !important;
+}
+
+/* keep search icon area dark too */
+.dash-dropdown-search-icon,
+.dash-dropdown-search-container svg,
+.dash-dropdown-search-container path {
+  color: var(--text-secondary) !important;
+  fill: var(--text-secondary) !important;
+}
+
+/* exact date-range separator arrow */
+svg.dash-datepicker-range-arrow,
+svg.dash-datepicker-range-arrow *,
+svg.dash-datepicker-range-arrow path {
+  color: var(--sage-500) !important;
+  fill: var(--sage-500) !important;
+  stroke: var(--sage-500) !important;
+  opacity: 1 !important;
+}
+
+/* keep the wrapper around the separator visible too */
+#date_range-wrapper svg.dash-datepicker-range-arrow,
+.airlens-date-range svg.dash-datepicker-range-arrow {
+  color: var(--sage-500) !important;
+  fill: var(--sage-500) !important;
+  stroke: var(--sage-500) !important;
+}
+
+/* closed/open date separator container */
+#date_range-wrapper>div,
+.airlens-date-range>div,
+.airlens-date-range .dash-datepicker-input-wrapper>div {
+  min-width: max-content !important;
+}
+
+/* separator in closed state */
+#date_range-wrapper>div:nth-child(2),
+.airlens-date-range>div:nth-child(2),
+.airlens-date-range .dash-datepicker-input-wrapper>div:nth-child(2) {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 20px !important;
+  margin: 0 6px !important;
+  color: var(--sage-500) !important;
+  opacity: 1 !important;
+}
+
+/* if separator is svg */
+#date_range-wrapper>div:nth-child(2) svg,
+#date_range-wrapper>div:nth-child(2) path,
+.airlens-date-range>div:nth-child(2) svg,
+.airlens-date-range>div:nth-child(2) path,
+.airlens-date-range .dash-datepicker-input-wrapper>div:nth-child(2) svg,
+.airlens-date-range .dash-datepicker-input-wrapper>div:nth-child(2) path {
+  fill: var(--sage-500) !important;
+  stroke: var(--sage-500) !important;
+  color: var(--sage-500) !important;
+  opacity: 1 !important;
+}
+
+/* if separator becomes text/span after selection */
+#date_range-wrapper>div:nth-child(2),
+#date_range-wrapper>div:nth-child(2) *,
+.airlens-date-range>div:nth-child(2),
+.airlens-date-range>div:nth-child(2) *,
+.airlens-date-range .dash-datepicker-input-wrapper>div:nth-child(2),
+.airlens-date-range .dash-datepicker-input-wrapper>div:nth-child(2) * {
+  color: var(--sage-500) !important;
 }
 
 /* ───────────────────────────────────────────────────────
@@ -441,123 +677,6 @@ body {
   overflow-y: auto;
 }
 
-/* ───────────────────────────────────────────────────────
-   KPI TILES - Apple Style
-   ─────────────────────────────────────────────────────── */
-
-.kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 16px;
-}
-
-.kpi-tile {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-lg);
-  padding: 20px;
-  transition: all var(--transition-base);
-  position: relative;
-  overflow: hidden;
-}
-
-.kpi-tile:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
-  border-color: var(--border-secondary);
-}
-
-.kpi-tile::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, var(--sage-400), var(--sage-600));
-}
-
-.kpi-tile.status-danger::before {
-  background: linear-gradient(90deg, var(--red-500), var(--red-600));
-}
-
-.kpi-tile.status-warning::before {
-  background: linear-gradient(90deg, var(--orange-500), var(--yellow-400));
-}
-
-.kpi-tile.status-good::before {
-  background: linear-gradient(90deg, var(--green-400), var(--sage-500));
-}
-
-.kpi-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-
-.kpi-label {
-  font-size: 13px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-secondary);
-}
-
-.kpi-icon {
-  width: 32px;
-  height: 32px;
-  background: var(--bg-tertiary);
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-}
-
-.kpi-value-section {
-  margin-bottom: 12px;
-}
-
-.kpi-value {
-  font-size: 48px;
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: -2px;
-  margin-bottom: 4px;
-  background: linear-gradient(135deg, var(--sage-300), var(--sage-500));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.kpi-tile.status-danger .kpi-value {
-  background: linear-gradient(135deg, var(--red-400), var(--red-600));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.kpi-tile.status-warning .kpi-value {
-  background: linear-gradient(135deg, var(--orange-400), var(--yellow-400));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.kpi-unit {
-  font-size: 13px;
-  color: var(--text-tertiary);
-  font-weight: 500;
-}
-
-.kpi-subtitle {
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin-top: 8px;
-  padding: 6px 10px;
-  background: var(--bg-tertiary);
-  border-radius: var(--radius-sm);
-  display: inline-block;
-}
 
 /* ───────────────────────────────────────────────────────
    CARDS - Apple Rounded Style
@@ -616,78 +735,6 @@ body {
   padding: 24px;
 }
 
-/* ───────────────────────────────────────────────────────
-   STATION CARDS (Room-style from reference)
-   ─────────────────────────────────────────────────────── */
-
-.station-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 16px;
-}
-
-.station-card {
-  background: var(--bg-tertiary);
-  border-radius: var(--radius-lg);
-  padding: 20px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  transition: all var(--transition-base);
-}
-
-.station-card:hover {
-  background: var(--bg-elevated);
-  transform: scale(1.02);
-}
-
-.station-info {
-  flex: 1;
-}
-
-.station-name {
-  font-size: 15px;
-  font-weight: 700;
-  margin-bottom: 4px;
-}
-
-.station-meta {
-  font-size: 13px;
-  color: var(--text-tertiary);
-}
-
-.gauge-container {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-.circular-gauge {
-  position: relative;
-  width: 60px;
-  height: 60px;
-}
-
-.gauge-ring {
-  transform: rotate(-90deg);
-}
-
-.gauge-value {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 16px;
-  font-weight: 800;
-  text-align: center;
-}
-
-.gauge-label {
-  font-size: 11px;
-  color: var(--text-tertiary);
-  margin-top: 4px;
-  text-align: center;
-}
 
 /* ───────────────────────────────────────────────────────
    CHART STYLING
@@ -825,6 +872,7 @@ body {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -835,10 +883,21 @@ body {
   animation: fadeInUp 0.4s ease both;
 }
 
-.kpi-tile:nth-child(1) { animation-delay: 0.05s; }
-.kpi-tile:nth-child(2) { animation-delay: 0.10s; }
-.kpi-tile:nth-child(3) { animation-delay: 0.15s; }
-.kpi-tile:nth-child(4) { animation-delay: 0.20s; }
+.kpi-tile:nth-child(1) {
+  animation-delay: 0.05s;
+}
+
+.kpi-tile:nth-child(2) {
+  animation-delay: 0.10s;
+}
+
+.kpi-tile:nth-child(3) {
+  animation-delay: 0.15s;
+}
+
+.kpi-tile:nth-child(4) {
+  animation-delay: 0.20s;
+}
 
 /* ───────────────────────────────────────────────────────
    SCROLLBAR
@@ -870,20 +929,20 @@ body {
   #main-content {
     margin-left: 0;
   }
-  
+
   #sidebar {
     transform: translateX(-100%);
     transition: transform var(--transition-base);
   }
-  
+
   #sidebar.mobile-open {
     transform: translateX(0);
   }
-  
+
   .kpi-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -893,11 +952,11 @@ body {
   .content {
     padding: 20px;
   }
-  
+
   .topbar {
     padding: 16px 20px;
   }
-  
+
   .stats-grid {
     grid-template-columns: 1fr;
   }

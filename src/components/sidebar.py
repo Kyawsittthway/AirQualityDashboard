@@ -124,6 +124,7 @@ def create_sidebar():
                     html.Div("Date Range", className="filter-label"),
                     dcc.DatePickerRange(
                         id="date_range",
+                        className="airlens-date-range",
                         display_format="DD MMM YYYY",
                         start_date_placeholder_text="Start",
                         end_date_placeholder_text="End"

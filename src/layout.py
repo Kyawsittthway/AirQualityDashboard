@@ -1,7 +1,5 @@
 from dash import Dash, html, dcc, callback, Output, Input, State, no_update, callback_context, clientside_callback
 from components.sidebar import create_sidebar
-from components.kpi_tiles import create_kpi_tiles
-from components.station_cards import create_station_cards_section, create_circular_gauge
 
 
 def create_layout(wales_df_long):
@@ -56,8 +54,6 @@ def create_layout(wales_df_long):
                         html.Div(
                             className="content",
                             children=[
-                                # KPI Tiles
-                                create_kpi_tiles(),
 
                                 # Time Series Chart
                                 html.Div(
@@ -248,27 +244,6 @@ def create_layout(wales_df_long):
                                                         )
                                                     ]
                                                 )
-                                            ]
-                                        )
-                                    ]
-                                ),
-
-                                # Station Cards
-                                html.Div(
-                                    className="card",
-                                    style={"marginTop": "24px"},
-                                    children=[
-                                        html.Div(
-                                            className="card-header",
-                                            children=[
-                                                html.Div("Station Details",
-                                                         className="card-title")
-                                            ]
-                                        ),
-                                        html.Div(
-                                            className="card-body",
-                                            children=[
-                                                create_station_cards_section()
                                             ]
                                         )
                                     ]
