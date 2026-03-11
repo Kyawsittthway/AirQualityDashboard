@@ -161,6 +161,10 @@ body {
   padding: 0 8px;
 }
 
+.dropdown-sidebar{
+  color:black;
+}
+
 .logo-section {
   display: flex;
   align-items: center;

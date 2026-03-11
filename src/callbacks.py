@@ -1,6 +1,18 @@
 # src/callbacks.py
 
-from dash import Dash, html, dcc, callback, Output, Input, State, no_update, callback_context, clientside_callback, dash_table
+from dash import (
+    Dash,
+    html,
+    dcc,
+    callback,
+    Output,
+    Input,
+    State,
+    no_update,
+    callback_context,
+    clientside_callback,
+    dash_table,
+)
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -15,9 +27,10 @@ from utils.calculations import (
     get_status_class,
     format_date_range,
     LIMITS,
-    POLLUTANT_DISPLAY_NAMES
+    POLLUTANT_DISPLAY_NAMES,
 )
 from dataloader import load_data
+
 wales_df, wales_df_long = load_data()
 
 
@@ -27,7 +40,7 @@ wales_df, wales_df_long = load_data()
     Output("threshold-store", "data"),
     Input("toggle-uk", "n_clicks"),
     Input("toggle-who", "n_clicks"),
-    State("threshold-store", "data")
+    State("threshold-store", "data"),
 )
 def toggle_threshold(uk_clicks, who_clicks, current):
     """Handle WHO/UK threshold toggle."""
@@ -38,7 +51,7 @@ def toggle_threshold(uk_clicks, who_clicks, current):
     if not ctx.triggered:
         return "toggle-option active", "toggle-option", "UK"
 
-    button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+    button_id = ctx.triggered[0]["prop_id"].split(".")[0]
 
     if button_id == "toggle-uk":
         return "toggle-option active", "toggle-option", "UK"
@@ -53,7 +66,7 @@ def toggle_threshold(uk_clicks, who_clicks, current):
     Output("app-container", "data-theme"),
     Input("toggle-dark", "n_clicks"),
     Input("toggle-light", "n_clicks"),
-    State("theme-store", "data")
+    State("theme-store", "data"),
 )
 def toggle_theme(dark_clicks, light_clicks, current):
     """Handle dark/light theme toggle."""
@@ -64,7 +77,7 @@ def toggle_theme(dark_clicks, light_clicks, current):
     if not ctx.triggered:
         return "toggle-option active", "toggle-option", "dark", "dark"
 
-    button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+    button_id = ctx.triggered[0]["prop_id"].split(".")[0]
 
     if button_id == "toggle-dark":
         return "toggle-option active", "toggle-option", "dark", "dark"
@@ -76,9 +89,7 @@ def register_callbacks(app, wales_df, wales_df_long):
     # Precomputed maps to reduce repetition and increase dashboard's speed
 
     site_to_pollutants = (
-        wales_df_long.groupby("site")["pollutants"]
-        .apply(set)
-        .to_dict()
+        wales_df_long.groupby("site")["pollutants"].apply(set).to_dict()
     )
 
     site_to_dates = (
@@ -102,11 +113,7 @@ def register_callbacks(app, wales_df, wales_df_long):
         .to_dict()
     )
 
-    pol_to_sites = (
-        wales_df_long.groupby("pollutants")["site"]
-        .apply(set)
-        .to_dict()
-    )
+    pol_to_sites = wales_df_long.groupby("pollutants")["site"].apply(set).to_dict()
 
     all_sites = sorted(wales_df_long["site"].unique())
     all_pollutants = sorted(wales_df_long["pollutants"].unique())
@@ -169,15 +176,21 @@ def register_callbacks(app, wales_df, wales_df_long):
             start_dt = pd.to_datetime(start_date).date()
             end_dt = pd.to_datetime(end_date).date()
 
-            candidates = pol_to_sites.get(pollutant, set(
-                all_sites)) if pollutant else set(all_sites)
+            candidates = (
+                pol_to_sites.get(pollutant, set(all_sites))
+                if pollutant
+                else set(all_sites)
+            )
 
-            valid = sorted([
-                site for site in candidates
-                if site in site_to_dates
-                and site_to_dates[site][0] <= end_dt
-                and site_to_dates[site][1] >= start_dt
-            ])
+            valid = sorted(
+                [
+                    site
+                    for site in candidates
+                    if site in site_to_dates
+                    and site_to_dates[site][0] <= end_dt
+                    and site_to_dates[site][1] >= start_dt
+                ]
+            )
 
         if currently_selected:
             valid = sorted(set(valid) | set(currently_selected))
@@ -201,25 +214,34 @@ def register_callbacks(app, wales_df, wales_df_long):
             valid = all_pollutants
 
         else:
-            start_dt = pd.to_datetime(
-                start_date).date() if date_active else None
+            start_dt = pd.to_datetime(start_date).date() if date_active else None
             end_dt = pd.to_datetime(end_date).date() if date_active else None
 
             if not sites:
                 valid = all_pollutants
                 if date_active:
                     valid = sorted(
-                        p for p, (p_min, p_max) in pol_to_dates.items()
+                        p
+                        for p, (p_min, p_max) in pol_to_dates.items()
                         if p_min <= end_dt and p_max >= start_dt
                     )
             else:
-                common = set.intersection(*[
-                    site_to_pollutants[s] for s in sites if s in site_to_pollutants
-                ]) if sites else set(all_pollutants)
+                common = (
+                    set.intersection(
+                        *[
+                            site_to_pollutants[s]
+                            for s in sites
+                            if s in site_to_pollutants
+                        ]
+                    )
+                    if sites
+                    else set(all_pollutants)
+                )
 
                 if date_active:
                     common = {
-                        p for p in common
+                        p
+                        for p in common
                         if any(
                             (s, p) in site_pol_to_dates
                             and site_pol_to_dates[(s, p)][0] <= end_dt
@@ -262,6 +284,7 @@ def register_callbacks(app, wales_df, wales_df_long):
             "start_date": start_date,
             "end_date": end_date,
         }
+
     # 5) Update ONLY date_range bounds from store
 
     @app.callback(
@@ -356,8 +379,7 @@ def register_callbacks(app, wales_df, wales_df_long):
 
         # Sites that don't measure the pollutant
         sites_missing_pollutant = [
-            s for s in sites
-            if pollutant not in site_to_pollutants.get(s, set())
+            s for s in sites if pollutant not in site_to_pollutants.get(s, set())
         ]
         if sites_missing_pollutant:
             return (
@@ -381,7 +403,8 @@ def register_callbacks(app, wales_df, wales_df_long):
 
             # Sites with no data for (site, pollutant) in selected date range
             sites_no_data = [
-                s for s in sites
+                s
+                for s in sites
                 if (s, pollutant) not in site_pol_to_dates
                 or site_pol_to_dates[(s, pollutant)][1] < start_d
                 or site_pol_to_dates[(s, pollutant)][0] > end_d
@@ -396,7 +419,7 @@ def register_callbacks(app, wales_df, wales_df_long):
 
         return "", hidden
 
-     # 8) HOURLY Graph
+    # 8) HOURLY Graph
 
     @app.callback(
         Output("time-series-chart", "figure"),
@@ -408,23 +431,29 @@ def register_callbacks(app, wales_df, wales_df_long):
     def update_graph(selected_sites, pollutant, start_date, end_date):
         selected_sites = selected_sites or []
 
-        if not selected_sites or not pollutant or not has_full_date_range(start_date, end_date):
+        if (
+            not selected_sites
+            or not pollutant
+            or not has_full_date_range(start_date, end_date)
+        ):
             fig = px.line(title="Select sites, a pollutant, and a date range")
             fig.update_layout(
                 template="plotly_dark",
                 paper_bgcolor="rgba(0,0,0,0)",
                 plot_bgcolor="rgba(0,0,0,0)",
-                height=400)
+                height=400,
+            )
             return fig
 
         start_dt = pd.to_datetime(start_date)
-        end_dt = pd.to_datetime(end_date) + \
-            pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+        end_dt = (
+            pd.to_datetime(end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+        )
 
         df = wales_df[
-            (wales_df["site"].isin(selected_sites)) &
-            (wales_df["date"] >= start_dt) &
-            (wales_df["date"] <= end_dt)
+            (wales_df["site"].isin(selected_sites))
+            & (wales_df["date"] >= start_dt)
+            & (wales_df["date"] <= end_dt)
         ].copy()
 
         if df.empty:
@@ -433,7 +462,8 @@ def register_callbacks(app, wales_df, wales_df_long):
                 template="plotly_dark",
                 paper_bgcolor="rgba(0,0,0,0)",
                 plot_bgcolor="rgba(0,0,0,0)",
-                height=400)
+                height=400,
+            )
             return fig
 
         df = df.sort_values(["site", "date"])
@@ -461,13 +491,14 @@ def register_callbacks(app, wales_df, wales_df_long):
     Input("site_drop", "value"),
     Input("pol_drop", "value"),
     Input("date_range", "start_date"),
-    Input("date_range", "end_date")
+    Input("date_range", "end_date"),
 )
 def update_topbar(sites, pollutant, start_date, end_date):
     """Update topbar metadata."""
     stations_text = f"{len(sites)}" if sites else "--"
-    pollutant_text = POLLUTANT_DISPLAY_NAMES.get(
-        pollutant, pollutant) if pollutant else "--"
+    pollutant_text = (
+        POLLUTANT_DISPLAY_NAMES.get(pollutant, pollutant) if pollutant else "--"
+    )
     period_text = format_date_range(start_date, end_date)
 
     return stations_text, pollutant_text, period_text
@@ -477,9 +508,9 @@ def update_topbar(sites, pollutant, start_date, end_date):
     Output("kpi-no2-value", "children"),
     Output("kpi-no2-subtitle", "children"),
     Output("kpi-no2-container", "className"),
-    Output("kpi-pm25-value", "children"),
-    Output("kpi-pm25-subtitle", "children"),
-    Output("kpi-pm25-container", "className"),
+    # Output("kpi-pm25-value", "children"),
+    # Output("kpi-pm25-subtitle", "children"),
+    # Output("kpi-pm25-container", "className"),
     Output("kpi-exceed-value", "children"),
     Output("kpi-exceed-unit", "children"),
     Output("kpi-exceed-subtitle", "children"),
@@ -491,30 +522,48 @@ def update_topbar(sites, pollutant, start_date, end_date):
     Input("pol_drop", "value"),
     Input("date_range", "start_date"),
     Input("date_range", "end_date"),
-    Input("threshold-store", "data")
+    Input("threshold-store", "data"),
 )
 def update_kpi_tiles(sites, pollutant, start_date, end_date, threshold_type):
     """Update all KPI tiles."""
     if not sites or not pollutant or not start_date or not end_date:
         return (
-            "--", "Select data to view", "kpi-tile status-good",
-            "--", "Select data to view", "kpi-tile status-good",
-            "--", "days/hours", "Select data to view", "kpi-tile status-good",
-            "--", "Select data to view", "kpi-tile status-good"
+            "--",
+            "Select data to view",
+            "kpi-tile status-good",
+            # "--",
+            # "Select data to view",
+            # "kpi-tile status-good",
+            "--",
+            "days/hours",
+            "Select data to view",
+            "kpi-tile status-good",
+            "--",
+            "Select data to view",
+            "kpi-tile status-good",
         )
 
     df_filtered = wales_df[
-        (wales_df["site"].isin(sites)) &
-        (wales_df["date"] >= start_date) &
-        (wales_df["date"] <= end_date)
+        (wales_df["site"].isin(sites))
+        & (wales_df["date"] >= start_date)
+        & (wales_df["date"] <= end_date)
     ]
 
     if df_filtered.empty:
         return (
-            "--", "No data available", "kpi-tile status-good",
-            "--", "No data available", "kpi-tile status-good",
-            "--", "days/hours", "No data available", "kpi-tile status-good",
-            "--", "No data available", "kpi-tile status-good"
+            "--",
+            "No data available",
+            "kpi-tile status-good",
+            # "--",
+            # "No data available",
+            # "kpi-tile status-good",
+            "--",
+            "days/hours",
+            "No data available",
+            "kpi-tile status-good",
+            "--",
+            "No data available",
+            "kpi-tile status-good",
         )
 
     # NO2 Mean
@@ -540,26 +589,25 @@ def update_kpi_tiles(sites, pollutant, start_date, end_date, threshold_type):
             pm25_class = "kpi-tile status-warning"
 
     # Calculate exceedance values
-    exceed_result = calculate_exceedance_rosie(
-        df_filtered, pollutant, threshold_type)
-    exceed_val = exceed_result['value']
-    exceed_unit = "count" if exceed_result['type'] == 'count' else "μg/m³"
-    exceed_subtitle = exceed_result['label']
+    exceed_result = calculate_exceedance_rosie(df_filtered, pollutant, threshold_type)
+    exceed_val = exceed_result["value"]
+    exceed_unit = "count" if exceed_result["type"] == "count" else "μg/m³"
+    exceed_subtitle = exceed_result["label"]
 
     # Determine status
-    if exceed_result['type'] == 'count':
+    if exceed_result["type"] == "count":
         exceed_status = get_status_class(
-            exceed_val, exceed_result['limit'], is_exceedance=True)
+            exceed_val, exceed_result["limit"], is_exceedance=True
+        )
     else:
-        exceed_status = 'warning'
+        exceed_status = "warning"
 
     exceed_class = f"kpi-tile status-{exceed_status}"
 
     # Completeness
     completeness = calculate_completeness(df_filtered, pollutant)
     completeness_val = f"{completeness}%"
-    completeness_status = get_status_class(
-        completeness, 100, is_exceedance=False)
+    completeness_status = get_status_class(completeness, 100, is_exceedance=False)
 
     if completeness >= 85:
         completeness_subtitle = "Excellent data quality"
@@ -571,10 +619,19 @@ def update_kpi_tiles(sites, pollutant, start_date, end_date, threshold_type):
     completeness_class = f"kpi-tile status-{completeness_status}"
 
     return (
-        no2_mean, no2_subtitle, no2_class,
-        pm25_mean, pm25_subtitle, pm25_class,
-        exceed_val, exceed_unit, exceed_subtitle, exceed_class,
-        completeness_val, completeness_subtitle, completeness_class
+        no2_mean,
+        no2_subtitle,
+        no2_class,
+        # pm25_mean,
+        # pm25_subtitle,
+        # pm25_class,
+        exceed_val,
+        exceed_unit,
+        exceed_subtitle,
+        exceed_class,
+        completeness_val,
+        completeness_subtitle,
+        completeness_class,
     )
 
 
@@ -589,14 +646,14 @@ def update_summary_stats(sites, pollutant, start_date, end_date):
     if not sites or not pollutant or not start_date or not end_date:
         return html.Div(
             "Please select site(s), a pollutant, and a date range to generate statistics.",
-            className="text-muted italic"
+            className="text-muted italic",
         )
 
     mask = (
-        wales_df_long["site"].isin(sites) &
-        (wales_df_long["pollutants"] == pollutant) &
-        (wales_df_long["date"] >= pd.to_datetime(start_date)) &
-        (wales_df_long["date"] <= pd.to_datetime(end_date))
+        wales_df_long["site"].isin(sites)
+        & (wales_df_long["pollutants"] == pollutant)
+        & (wales_df_long["date"] >= pd.to_datetime(start_date))
+        & (wales_df_long["date"] <= pd.to_datetime(end_date))
     )
 
     filtered_df = wales_df_long.loc[mask].copy()
@@ -662,8 +719,8 @@ def update_summary_stats(sites, pollutant, start_date, end_date):
                 },
             ],
             style_as_list_view=True,
-    ),
-    className="stats-table",
+        ),
+        className="stats-table",
     )
 
 
@@ -673,7 +730,7 @@ def update_summary_stats(sites, pollutant, start_date, end_date):
     Input("site_drop", "value"),
     Input("pol_drop", "value"),
     Input("date_range", "start_date"),
-    Input("date_range", "end_date")
+    Input("date_range", "end_date"),
 )
 def update_completeness(sites, pollutant, start_date, end_date):
     """Update completeness panel."""
@@ -681,9 +738,9 @@ def update_completeness(sites, pollutant, start_date, end_date):
         return "--", []
 
     df_filtered = wales_df[
-        (wales_df["site"].isin(sites)) &
-        (wales_df["date"] >= start_date) &
-        (wales_df["date"] <= end_date)
+        (wales_df["site"].isin(sites))
+        & (wales_df["date"] >= start_date)
+        & (wales_df["date"] <= end_date)
     ]
 
     # Overall
@@ -691,8 +748,7 @@ def update_completeness(sites, pollutant, start_date, end_date):
     overall_text = f"{overall}%"
 
     # Per-site
-    site_results = calculate_completeness_by_site(
-        df_filtered, sites, pollutant)
+    site_results = calculate_completeness_by_site(df_filtered, sites, pollutant)
 
     bars = []
     for result in site_results:
@@ -700,19 +756,21 @@ def update_completeness(sites, pollutant, start_date, end_date):
             html.Div(
                 className="completeness-item",
                 children=[
-                    html.Div(result['site'], className="completeness-label"),
+                    html.Div(result["site"], className="completeness-label"),
                     html.Div(
                         className="completeness-bar-track",
                         children=[
                             html.Div(
                                 className=f"completeness-bar-fill status-{result['status']}",
-                                style={"width": f"{result['completeness']}%"}
+                                style={"width": f"{result['completeness']}%"},
                             )
-                        ]
+                        ],
                     ),
-                    html.Div(f"{result['completeness']}%",
-                             className="completeness-percentage")
-                ]
+                    html.Div(
+                        f"{result['completeness']}%",
+                        className="completeness-percentage",
+                    ),
+                ],
             )
         )
 
@@ -725,41 +783,51 @@ def update_completeness(sites, pollutant, start_date, end_date):
     Input("pol_drop", "value"),
     Input("date_range", "start_date"),
     Input("date_range", "end_date"),
-    Input("threshold-store", "data")
+    Input("threshold-store", "data"),
 )
 def update_station_cards(sites, pollutant, start_date, end_date, threshold_type):
     """Update station cards with gauges."""
     if not sites or not pollutant or not start_date or not end_date:
         return html.Div(
             "Select stations and pollutant to view details",
-            style={"textAlign": "center",
-                   "color": "var(--text-tertiary)", "padding": "40px"}
+            style={
+                "textAlign": "center",
+                "color": "var(--text-tertiary)",
+                "padding": "40px",
+            },
         )
 
     cards = []
 
     for site in sites:
         site_df = wales_df[
-            (wales_df["site"] == site) &
-            (wales_df["date"] >= start_date) &
-            (wales_df["date"] <= end_date)
+            (wales_df["site"] == site)
+            & (wales_df["date"] >= start_date)
+            & (wales_df["date"] <= end_date)
         ]
 
         if site_df.empty:
             continue
 
         # Calculate metrics
-        exceed_result = calculate_exceedance_rosie(
-            site_df, pollutant, threshold_type)
+        exceed_result = calculate_exceedance_rosie(site_df, pollutant, threshold_type)
         completeness = calculate_completeness(site_df, pollutant)
 
         # Determine colors
-        if exceed_result['type'] == 'count':
-            exceed_color = "#EF4444" if exceed_result['value'] > exceed_result['limit'] else "#10B981"
+        if exceed_result["type"] == "count":
+            exceed_color = (
+                "#EF4444"
+                if exceed_result["value"] > exceed_result["limit"]
+                else "#10B981"
+            )
         else:
             exceed_color = "#F59E0B"
 
-        comp_color = "#10B981" if completeness >= 85 else "#F59E0B" if completeness >= 75 else "#EF4444"
+        comp_color = (
+            "#10B981"
+            if completeness >= 85
+            else "#F59E0B" if completeness >= 75 else "#EF4444"
+        )
 
         cards.append(
             html.Div(
@@ -770,10 +838,9 @@ def update_station_cards(sites, pollutant, start_date, end_date, threshold_type)
                         children=[
                             html.Div(site, className="station-name"),
                             html.Div(
-                                f"{len(site_df)} observations",
-                                className="station-meta"
-                            )
-                        ]
+                                f"{len(site_df)} observations", className="station-meta"
+                            ),
+                        ],
                     ),
                     html.Div(
                         className="gauge-container",
@@ -782,50 +849,52 @@ def update_station_cards(sites, pollutant, start_date, end_date, threshold_type)
                                 children=[
                                     dcc.Graph(
                                         figure=create_circular_gauge(
-                                            exceed_result['value'],
-                                            exceed_result['limit'] if exceed_result['limit'] > 0 else 100,
+                                            exceed_result["value"],
+                                            (
+                                                exceed_result["limit"]
+                                                if exceed_result["limit"] > 0
+                                                else 100
+                                            ),
                                             exceed_color,
-                                            60
+                                            60,
                                         ),
-                                        config={'displayModeBar': False},
-                                        style={"height": "60px",
-                                               "width": "60px"}
+                                        config={"displayModeBar": False},
+                                        style={"height": "60px", "width": "60px"},
                                     ),
                                     html.Div(
                                         POLLUTANT_DISPLAY_NAMES.get(
-                                            pollutant, pollutant),
-                                        className="gauge-label"
-                                    )
+                                            pollutant, pollutant
+                                        ),
+                                        className="gauge-label",
+                                    ),
                                 ]
                             ),
                             html.Div(
                                 children=[
                                     dcc.Graph(
                                         figure=create_circular_gauge(
-                                            completeness,
-                                            100,
-                                            comp_color,
-                                            60
+                                            completeness, 100, comp_color, 60
                                         ),
-                                        config={'displayModeBar': False},
-                                        style={"height": "60px",
-                                               "width": "60px"}
+                                        config={"displayModeBar": False},
+                                        style={"height": "60px", "width": "60px"},
                                     ),
-                                    html.Div(
-                                        "Complete", className="gauge-label")
+                                    html.Div("Complete", className="gauge-label"),
                                 ]
-                            )
-                        ]
-                    )
-                ]
+                            ),
+                        ],
+                    ),
+                ],
             )
         )
 
     if not cards:
         return html.Div(
             "No data available for selected filters",
-            style={"textAlign": "center",
-                   "color": "var(--text-tertiary)", "padding": "40px"}
+            style={
+                "textAlign": "center",
+                "color": "var(--text-tertiary)",
+                "padding": "40px",
+            },
         )
 
     return html.Div(className="station-grid", children=cards)
