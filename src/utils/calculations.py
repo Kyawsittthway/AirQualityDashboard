@@ -216,50 +216,36 @@ def calculate_completeness_by_site(df, sites, pollutant):
     return results
 
 
-def calculate_summary_stats(df, pollutant):
+
+def calculate_summary_stats(filtered_df: pd.DataFrame) -> pd.DataFrame:
     """
-    Calculate summary statistics for a pollutant.
-    
-    Args:
-        df: DataFrame with pollutant data
-        pollutant: Pollutant column name
-    
+    Calculate site-level summary statistics from filtered long-format data.
     Returns:
-        dict: {mean, median, std, min, max, iqr}
+        DataFrame with columns: Site, Mean, Median, Min, Max, Std, Observations
     """
-    if df.empty or pollutant not in df.columns:
-        return {
-            'mean': '--',
-            'median': '--',
-            'std': '--',
-            'min': '--',
-            'max': '--',
-            'iqr': '--'
-        }
-    
-    data = df[pollutant].dropna()
-    
-    if len(data) == 0:
-        return {
-            'mean': '--',
-            'median': '--',
-            'std': '--',
-            'min': '--',
-            'max': '--',
-            'iqr': '--'
-        }
-    
-    q1 = data.quantile(0.25)
-    q3 = data.quantile(0.75)
-    
-    return {
-        'mean': round(data.mean(), 1),
-        'median': round(data.median(), 1),
-        'std': round(data.std(), 1),
-        'min': round(data.min(), 1),
-        'max': round(data.max(), 1),
-        'iqr': round(q3 - q1, 1)
-    }
+    if filtered_df.empty or "site" not in filtered_df.columns or "value" not in filtered_df.columns:
+        return pd.DataFrame(columns=["Site", "Mean", "Median", "Min", "Max", "Std", "Observations"])
+
+    summary = (
+        filtered_df.groupby("site")["value"]
+        .agg(
+            Mean="mean",
+            Median="median",
+            Min="min",
+            Max="max",
+            Std="std",
+            Observations="count",
+        )
+        .reset_index()
+        .rename(columns={"site": "Site"})
+    )
+
+    for col in ["Mean", "Median", "Min", "Max", "Std"]:
+        summary[col] = summary[col].round(2)
+
+    summary["Observations"] = summary["Observations"].astype(int)
+
+    return summary
 
 
 
