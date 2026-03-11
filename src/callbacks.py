@@ -1,6 +1,6 @@
 # src/callbacks.py
 
-from dash import Dash, html, dcc, callback, Output, Input, State, no_update, callback_context, clientside_callback
+from dash import Dash, html, dcc, callback, Output, Input, State, no_update, callback_context, clientside_callback, dash_table
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -579,37 +579,91 @@ def update_kpi_tiles(sites, pollutant, start_date, end_date, threshold_type):
 
 
 @callback(
-    Output("stat-mean", "children"),
-    Output("stat-median", "children"),
-    Output("stat-std", "children"),
-    Output("stat-min", "children"),
-    Output("stat-max", "children"),
-    Output("stat-iqr", "children"),
+    Output("stats_container", "children"),
     Input("site_drop", "value"),
     Input("pol_drop", "value"),
     Input("date_range", "start_date"),
-    Input("date_range", "end_date")
+    Input("date_range", "end_date"),
 )
 def update_summary_stats(sites, pollutant, start_date, end_date):
-    """Update summary statistics."""
     if not sites or not pollutant or not start_date or not end_date:
-        return "--", "--", "--", "--", "--", "--"
+        return html.Div(
+            "Please select site(s), a pollutant, and a date range to generate statistics.",
+            className="text-muted italic"
+        )
 
-    df_filtered = wales_df[
-        (wales_df["site"].isin(sites)) &
-        (wales_df["date"] >= start_date) &
-        (wales_df["date"] <= end_date)
-    ]
+    mask = (
+        wales_df_long["site"].isin(sites) &
+        (wales_df_long["pollutants"] == pollutant) &
+        (wales_df_long["date"] >= pd.to_datetime(start_date)) &
+        (wales_df_long["date"] <= pd.to_datetime(end_date))
+    )
 
-    stats = calculate_summary_stats(df_filtered, pollutant)
+    filtered_df = wales_df_long.loc[mask].copy()
 
-    return (
-        stats['mean'],
-        stats['median'],
-        stats['std'],
-        stats['min'],
-        stats['max'],
-        stats['iqr']
+    if filtered_df.empty:
+        return html.Div(
+            f"No {pollutant} data available for the selected sites in this timeframe."
+        )
+
+    summary_df = calculate_summary_stats(filtered_df)
+
+    if summary_df.empty:
+        return html.Div("No statistics available for the current filters.")
+
+    return html.Div(
+        dash_table.DataTable(
+            data=summary_df.to_dict("records"),
+            columns=[{"name": col, "id": col} for col in summary_df.columns],
+            sort_action="native",
+            page_size=10,
+            style_table={
+                "overflowX": "auto",
+                "width": "100%",
+                "backgroundColor": "transparent",
+            },
+            style_cell={
+                "textAlign": "center",
+                "padding": "12px 10px",
+                "fontFamily": "Inter, sans-serif",
+                "fontSize": "14px",
+                "color": "var(--text-primary)",
+                "backgroundColor": "var(--bg-secondary)",
+                "border": "none",
+            },
+            style_header={
+                "fontWeight": "700",
+                "color": "var(--sage-500)",
+                "backgroundColor": "var(--bg-tertiary)",
+                "borderBottom": "1px solid rgba(255, 255, 255, 0.08)",
+                "textTransform": "uppercase",
+                "letterSpacing": "0.4px",
+                "fontSize": "12px",
+            },
+            style_data={
+                "backgroundColor": "var(--bg-secondary)",
+                "color": "var(--text-primary)",
+                "borderBottom": "1px solid rgba(255, 255, 255, 0.06)",
+            },
+            style_data_conditional=[
+                {
+                    "if": {"row_index": "odd"},
+                    "backgroundColor": "var(--bg-tertiary)",
+                },
+                {
+                    "if": {"state": "active"},
+                    "backgroundColor": "rgba(159, 212, 181, 0.12)",
+                    "border": "1px solid var(--sage-500)",
+                },
+                {
+                    "if": {"state": "selected"},
+                    "backgroundColor": "rgba(159, 212, 181, 0.18)",
+                    "border": "1px solid var(--sage-500)",
+                },
+            ],
+            style_as_list_view=True,
+    ),
+    className="stats-table",
     )
 
 
