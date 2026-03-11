@@ -114,83 +114,83 @@ def create_layout(wales_df_long):
                                                 html.Div(
                                                     className="card-body",
                                                     children=[
-                                                        html.Div(
-                                                            className="stats-grid",
-                                                            children=[
-                                                                # Mean
-                                                                html.Div(
-                                                                    className="stat-cell",
-                                                                    children=[
-                                                                        html.Div(
-                                                                            "Mean", className="stat-label"),
-                                                                        html.Div(
-                                                                            "--", className="stat-value", id="stat-mean"),
-                                                                        html.Div(
-                                                                            "μg/m³", className="stat-unit")
-                                                                    ]
-                                                                ),
-                                                                # Median
-                                                                html.Div(
-                                                                    className="stat-cell",
-                                                                    children=[
-                                                                        html.Div(
-                                                                            "Median", className="stat-label"),
-                                                                        html.Div(
-                                                                            "--", className="stat-value", id="stat-median"),
-                                                                        html.Div(
-                                                                            "μg/m³", className="stat-unit")
-                                                                    ]
-                                                                ),
-                                                                # Std Dev
-                                                                html.Div(
-                                                                    className="stat-cell",
-                                                                    children=[
-                                                                        html.Div(
-                                                                            "Std Dev", className="stat-label"),
-                                                                        html.Div(
-                                                                            "--", className="stat-value", id="stat-std"),
-                                                                        html.Div(
-                                                                            "μg/m³", className="stat-unit")
-                                                                    ]
-                                                                ),
-                                                                # Min
-                                                                html.Div(
-                                                                    className="stat-cell",
-                                                                    children=[
-                                                                        html.Div(
-                                                                            "Min", className="stat-label"),
-                                                                        html.Div(
-                                                                            "--", className="stat-value", id="stat-min"),
-                                                                        html.Div(
-                                                                            "μg/m³", className="stat-unit")
-                                                                    ]
-                                                                ),
-                                                                # Max
-                                                                html.Div(
-                                                                    className="stat-cell",
-                                                                    children=[
-                                                                        html.Div(
-                                                                            "Max", className="stat-label"),
-                                                                        html.Div(
-                                                                            "--", className="stat-value", id="stat-max"),
-                                                                        html.Div(
-                                                                            "μg/m³", className="stat-unit")
-                                                                    ]
-                                                                ),
-                                                                # IQR
-                                                                html.Div(
-                                                                    className="stat-cell",
-                                                                    children=[
-                                                                        html.Div(
-                                                                            "IQR", className="stat-label"),
-                                                                        html.Div(
-                                                                            "--", className="stat-value", id="stat-iqr"),
-                                                                        html.Div(
-                                                                            "μg/m³", className="stat-unit")
-                                                                    ]
-                                                                )
-                                                            ]
-                                                        )
+                                                        html.Div(id="stats_container",
+                                                                 className="stats-grid",
+                                                                 children=[
+                                                                     # Mean
+                                                                     html.Div(
+                                                                         className="stat-cell",
+                                                                         children=[
+                                                                             html.Div(
+                                                                                 "Mean", className="stat-label"),
+                                                                             html.Div(
+                                                                                 "--", className="stat-value", id="stat-mean"),
+                                                                             html.Div(
+                                                                                 "μg/m³", className="stat-unit")
+                                                                         ]
+                                                                     ),
+                                                                     # Median
+                                                                     html.Div(
+                                                                         className="stat-cell",
+                                                                         children=[
+                                                                             html.Div(
+                                                                                 "Median", className="stat-label"),
+                                                                             html.Div(
+                                                                                 "--", className="stat-value", id="stat-median"),
+                                                                             html.Div(
+                                                                                 "μg/m³", className="stat-unit")
+                                                                         ]
+                                                                     ),
+                                                                     # Std Dev
+                                                                     html.Div(
+                                                                         className="stat-cell",
+                                                                         children=[
+                                                                             html.Div(
+                                                                                 "Std Dev", className="stat-label"),
+                                                                             html.Div(
+                                                                                 "--", className="stat-value", id="stat-std"),
+                                                                             html.Div(
+                                                                                 "μg/m³", className="stat-unit")
+                                                                         ]
+                                                                     ),
+                                                                     # Min
+                                                                     html.Div(
+                                                                         className="stat-cell",
+                                                                         children=[
+                                                                             html.Div(
+                                                                                 "Min", className="stat-label"),
+                                                                             html.Div(
+                                                                                 "--", className="stat-value", id="stat-min"),
+                                                                             html.Div(
+                                                                                 "μg/m³", className="stat-unit")
+                                                                         ]
+                                                                     ),
+                                                                     # Max
+                                                                     html.Div(
+                                                                         className="stat-cell",
+                                                                         children=[
+                                                                             html.Div(
+                                                                                 "Max", className="stat-label"),
+                                                                             html.Div(
+                                                                                 "--", className="stat-value", id="stat-max"),
+                                                                             html.Div(
+                                                                                 "μg/m³", className="stat-unit")
+                                                                         ]
+                                                                     ),
+                                                                     # IQR
+                                                                     html.Div(
+                                                                         className="stat-cell",
+                                                                         children=[
+                                                                             html.Div(
+                                                                                 "IQR", className="stat-label"),
+                                                                             html.Div(
+                                                                                 "--", className="stat-value", id="stat-iqr"),
+                                                                             html.Div(
+                                                                                 "μg/m³", className="stat-unit")
+                                                                         ]
+                                                                     )
+                                                                 ]
+                                                                 )
                                                     ]
                                                 )
                                             ]
