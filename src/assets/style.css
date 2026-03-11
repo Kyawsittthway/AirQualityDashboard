@@ -804,6 +804,25 @@ svg.dash-datepicker-range-arrow path {
   color: var(--text-secondary);
 }
 
+/* Site summary statistics table */
+
+#stats_container {
+  margin-top: 10px;
+  min-height: 120px;
+}
+
+.card-title.stats-title {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+#stats_container .text-muted {
+  color: var(--text-tertiary);
+  font-style: italic;
+  padding: 12px 4px;
+}
+
+
 /* ───────────────────────────────────────────────────────
    COMPLETENESS BARS
    ─────────────────────────────────────────────────────── */

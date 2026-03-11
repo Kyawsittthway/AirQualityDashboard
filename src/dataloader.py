@@ -3,7 +3,7 @@ import pandas as pd
 
 def load_data():
     # Load the raw air quality data from CSV
-    wales_df = pd.read_csv("wales_air_quality_data_16.csv")
+    wales_df = pd.read_parquet("data/wales_active_sites_data.parquet")
 
     # Parse the date column, coercing any unparseable values to NaT
     wales_df["date"] = pd.to_datetime(wales_df["date"], errors="coerce")
@@ -14,7 +14,7 @@ def load_data():
     # Reshape from wide (one column per pollutant) to long format
     # (one row per site-date-pollutant combination) for easier filtering
     wales_df_long = wales_df.copy().melt(
-        id_vars=["date", "site", "site_id", "code"],
+        id_vars=["date", "site", "site_id"],
         value_vars=pollutant_cols,
         var_name="pollutants",
         value_name="value"
