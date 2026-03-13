@@ -23,7 +23,8 @@ def create_sidebar():
                             html.Div("AirLens", className="logo-text"),
                         ],
                     ),
-                    html.Div("UK Air Quality · DEFRA", className="logo-subtitle"),
+                    html.Div("UK Air Quality · DEFRA",
+                             className="logo-subtitle"),
                 ],
             ),
             # WHO / UK Toggle
