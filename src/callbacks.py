@@ -4,6 +4,7 @@ from dash import (
     Dash,
     html,
     dcc,
+    ctx,
     callback,
     Output,
     Input,
@@ -27,7 +28,7 @@ from utils.calculations import (
     LIMITS,
     POLLUTANT_DISPLAY_NAMES,
 )
-from dataloader import load_data
+from datetime import date, timedelta
 
 
 @callback(
@@ -120,8 +121,8 @@ def register_callbacks(app, wales_df, wales_df_long):
     def has_full_date_range(start_date, end_date):
         return bool(start_date) and bool(end_date)
 
-    # Function to compute intersection window (date-only) for current selection
     def compute_allowed_bounds(sites, pollutant):
+        """Compute intersection window (date-only) for current selection."""
         sites = sites or []
 
         if not sites:
@@ -150,7 +151,9 @@ def register_callbacks(app, wales_df, wales_df_long):
 
         return min_allowed, max_allowed
 
+    # ─────────────────────────────────────────────────────────────
     # 1) Update site dropdown OPTIONS based on pollutant + date range
+    # ─────────────────────────────────────────────────────────────
 
     @app.callback(
         Output("site_drop", "options"),
@@ -169,7 +172,6 @@ def register_callbacks(app, wales_df, wales_df_long):
             valid = sorted(pol_to_sites.get(pollutant, set()))
 
         else:
-            # Date range active (with or without pollutant)
             start_dt = pd.to_datetime(start_date).date()
             end_dt = pd.to_datetime(end_date).date()
 
@@ -194,7 +196,9 @@ def register_callbacks(app, wales_df, wales_df_long):
 
         return valid
 
+    # ─────────────────────────────────────────────────────────────
     # 2) Update pollutant dropdown OPTIONS based on sites + date range
+    # ─────────────────────────────────────────────────────────────
 
     @app.callback(
         Output("pol_drop", "options"),
@@ -255,7 +259,9 @@ def register_callbacks(app, wales_df, wales_df_long):
 
         return valid
 
+    # ─────────────────────────────────────────────────────────────
     # 3) Reset dropdown VALUES
+    # ─────────────────────────────────────────────────────────────
 
     @app.callback(
         Output("site_drop", "value"),
@@ -266,7 +272,9 @@ def register_callbacks(app, wales_df, wales_df_long):
     def reset_dropdowns(n_clicks):
         return [], None
 
-        # 4) Sync filter_store with current UI values
+    # ─────────────────────────────────────────────────────────────
+    # 4) Sync filter_store with current UI values
+    # ─────────────────────────────────────────────────────────────
 
     @app.callback(
         Output("filter_store", "data"),
@@ -283,7 +291,9 @@ def register_callbacks(app, wales_df, wales_df_long):
             "end_date": end_date,
         }
 
+    # ─────────────────────────────────────────────────────────────
     # 5) Update ONLY date_range bounds from store
+    # ─────────────────────────────────────────────────────────────
 
     @app.callback(
         Output("date_range", "min_date_allowed"),
@@ -300,14 +310,41 @@ def register_callbacks(app, wales_df, wales_df_long):
         min_allowed, max_allowed = compute_allowed_bounds(sites, pollutant)
 
         if min_allowed is None or max_allowed is None:
-            # Keep DatePicker usable even if no overlap — user can change selection
             return global_min, global_max
 
         return min_allowed, max_allowed
 
-    # 6) Manage date selection
+    # ─────────────────────────────────────────────────────────────
+    # 6) Save quick-select dates to store so they survive
+    #    site/pollutant dropdown changes
+    # ─────────────────────────────────────────────────────────────
+
+    @app.callback(
+        Output("date-store", "data"),
+        Input("yday", "n_clicks"),
+        Input("last_week", "n_clicks"),
+        Input("last_month", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def save_quick_date(yday, last_week, last_month):
+        today = date.today()
+        triggered = callback_context.triggered_id
+        if triggered == "yday":
+            d = today - timedelta(days=1)
+            return {"start": str(d), "end": str(d)}
+        elif triggered == "last_week":
+            return {"start": str(today - timedelta(days=7)), "end": str(today)}
+        elif triggered == "last_month":
+            return {"start": str(today - timedelta(days=30)), "end": str(today)}
+        return no_update
+
+    # ─────────────────────────────────────────────────────────────
+    # 7) Manage date selection
     #    - Reset clears selected dates
-    #    - Changing sites/pollutant clears selected dates if they become invalid
+    #    - Quick buttons set dates and persist to store
+    #    - Changing sites/pollutant restores from store if valid,
+    #      otherwise clears if dates fall outside allowed bounds
+    # ─────────────────────────────────────────────────────────────
 
     @app.callback(
         Output("date_range", "start_date"),
@@ -315,39 +352,68 @@ def register_callbacks(app, wales_df, wales_df_long):
         Input("reset_btn", "n_clicks"),
         Input("site_drop", "value"),
         Input("pol_drop", "value"),
+        Input("yday", "n_clicks"),
+        Input("last_week", "n_clicks"),
+        Input("last_month", "n_clicks"),
         State("date_range", "start_date"),
         State("date_range", "end_date"),
+        State("date-store", "data"),
     )
-    def manage_date_selection(n_clicks, sites, pollutant, start_date, end_date):
+    def manage_date_selection(
+        n_clicks, sites, pollutant,
+        yday, last_week, last_month,
+        start_date, end_date,
+        stored_dates,
+    ):
         triggered = callback_context.triggered_id
         sites = sites or []
 
-        # Reset always clears date selection
+        # Reset clears everything including the store
         if triggered == "reset_btn":
             return None, None
 
+        # Quick date buttons — set directly and store handles persistence
+        today = date.today()
+        if triggered == "yday":
+            yesterday = today - timedelta(days=1)
+            return yesterday, yesterday
+        elif triggered == "last_week":
+            return today - timedelta(days=7), today
+        elif triggered == "last_month":
+            return today - timedelta(days=30), today
+
+        # Sites/pollutant changed — validate against allowed bounds
         min_allowed, max_allowed = compute_allowed_bounds(sites, pollutant)
 
-        # If no overlap or no valid ranges, clear date selection
         if min_allowed is None or max_allowed is None:
             return None, None
 
-        # If user hasn't chosen both dates yet
-        if not has_full_date_range(start_date, end_date):
+        # Prefer stored dates over picker state when triggered by dropdown changes
+        effective_start = stored_dates["start"] if stored_dates else start_date
+        effective_end = stored_dates["end"] if stored_dates else end_date
+
+        if not has_full_date_range(effective_start, effective_end):
             return no_update, no_update
 
-        # If current selection is outside allowed bounds, clear it
         try:
-            cs = pd.to_datetime(start_date).date()
-            ce = pd.to_datetime(end_date).date()
+            cs = pd.to_datetime(effective_start).date()
+            ce = pd.to_datetime(effective_end).date()
         except Exception:
             return None, None
 
-        if cs < min_allowed or cs > max_allowed or ce < min_allowed or ce > max_allowed:
+        if (
+            cs < min_allowed
+            or cs > max_allowed
+            or ce < min_allowed
+            or ce > max_allowed
+        ):
             return None, None
 
-        return no_update, no_update
-        # 7) Warning banner
+        return effective_start, effective_end
+
+    # ─────────────────────────────────────────────────────────────
+    # 8) Warning banner
+    # ─────────────────────────────────────────────────────────────
 
     @app.callback(
         Output("filter_warning", "children"),
@@ -375,7 +441,6 @@ def register_callbacks(app, wales_df, wales_df_long):
         if not sites or not pollutant:
             return "", hidden
 
-        # Sites that don't measure the pollutant
         sites_missing_pollutant = [
             s for s in sites if pollutant not in site_to_pollutants.get(s, set())
         ]
@@ -386,7 +451,6 @@ def register_callbacks(app, wales_df, wales_df_long):
                 visible,
             )
 
-        # If the date intersection for the selected sites is empty, tell user that there is no overlapping time period
         min_allowed, max_allowed = compute_allowed_bounds(sites, pollutant)
         if min_allowed is None or max_allowed is None:
             return (
@@ -399,7 +463,6 @@ def register_callbacks(app, wales_df, wales_df_long):
             start_d = pd.to_datetime(start_date).date()
             end_d = pd.to_datetime(end_date).date()
 
-            # Sites with no data for (site, pollutant) in selected date range
             sites_no_data = [
                 s
                 for s in sites
@@ -417,7 +480,9 @@ def register_callbacks(app, wales_df, wales_df_long):
 
         return "", hidden
 
-    # 8) HOURLY Graph
+    # ─────────────────────────────────────────────────────────────
+    # 9) Hourly graph
+    # ─────────────────────────────────────────────────────────────
 
     @app.callback(
         Output("time-series-chart", "figure"),
@@ -482,6 +547,10 @@ def register_callbacks(app, wales_df, wales_df_long):
         )
         return fig
 
+    # ─────────────────────────────────────────────────────────────
+    # 10) Topbar metadata
+    # ─────────────────────────────────────────────────────────────
+
     @app.callback(
         Output("meta-stations", "children"),
         Output("meta-pollutant", "children"),
@@ -492,15 +561,17 @@ def register_callbacks(app, wales_df, wales_df_long):
         Input("date_range", "end_date"),
     )
     def update_topbar(sites, pollutant, start_date, end_date):
-        """Update topbar metadata."""
         stations_text = f"{len(sites)}" if sites else "--"
         pollutant_text = (
             POLLUTANT_DISPLAY_NAMES.get(
                 pollutant, pollutant) if pollutant else "--"
         )
         period_text = format_date_range(start_date, end_date)
-
         return stations_text, pollutant_text, period_text
+
+    # ─────────────────────────────────────────────────────────────
+    # 11) Summary statistics table
+    # ─────────────────────────────────────────────────────────────
 
     @app.callback(
         Output("stats_container", "children"),
@@ -516,11 +587,15 @@ def register_callbacks(app, wales_df, wales_df_long):
                 className="text-muted italic",
             )
 
+        start_dt = pd.to_datetime(start_date)
+        end_dt = pd.to_datetime(end_date) + \
+            pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+
         mask = (
             wales_df_long["site"].isin(sites)
             & (wales_df_long["pollutants"] == pollutant)
-            & (wales_df_long["date"] >= pd.to_datetime(start_date))
-            & (wales_df_long["date"] <= pd.to_datetime(end_date))
+            & (wales_df_long["date"] >= start_dt)
+            & (wales_df_long["date"] <= end_dt)
         )
 
         filtered_df = wales_df_long.loc[mask].copy()
@@ -591,6 +666,10 @@ def register_callbacks(app, wales_df, wales_df_long):
             className="stats-table",
         )
 
+    # ─────────────────────────────────────────────────────────────
+    # 12) Data completeness panel
+    # ─────────────────────────────────────────────────────────────
+
     @app.callback(
         Output("completeness-overall", "children"),
         Output("completeness-bars", "children"),
@@ -604,17 +683,19 @@ def register_callbacks(app, wales_df, wales_df_long):
         if not sites or not pollutant or not start_date or not end_date:
             return "--", []
 
+        start_dt = pd.to_datetime(start_date)
+        end_dt = pd.to_datetime(end_date) + \
+            pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+
         df_filtered = wales_df[
             (wales_df["site"].isin(sites))
-            & (wales_df["date"] >= start_date)
-            & (wales_df["date"] <= end_date)
+            & (wales_df["date"] >= start_dt)
+            & (wales_df["date"] <= end_dt)
         ]
 
-        # Overall
         overall = calculate_completeness(df_filtered, pollutant)
         overall_text = f"{overall}%"
 
-        # Per-site
         site_results = calculate_completeness_by_site(
             df_filtered, sites, pollutant)
 

@@ -36,8 +36,9 @@ def ensure_data_dir() -> None:
     os.makedirs(DATA_DIR, exist_ok=True)
 
 
-def get_yesterday() -> pd.Timestamp:
-    return pd.Timestamp(datetime.now().date() - timedelta(days=1)).normalize()
+def get_yesterday_end() -> pd.Timestamp:
+    """Returns the last hour of yesterday, e.g. 2026-03-13 23:00:00."""
+    return pd.Timestamp(datetime.now().date() - timedelta(days=1)).replace(hour=23, minute=0)
 
 
 def normalise_date_column(df: pd.DataFrame) -> pd.DataFrame:
@@ -50,7 +51,6 @@ def normalise_date_column(df: pd.DataFrame) -> pd.DataFrame:
     except Exception:
         df["date"] = pd.to_datetime(df["date"], errors="coerce")
 
-    # Do NOT call .dt.normalize() — preserve the time component
     return df
 
 
@@ -99,7 +99,6 @@ def load_or_create_live_file() -> pd.DataFrame:
     if os.path.exists(LIVE_FILE):
         df = pd.read_parquet(LIVE_FILE)
         if "date" in df.columns:
-            # Parse to datetime but preserve hourly timestamps — no .dt.normalize()
             df["date"] = pd.to_datetime(df["date"], errors="coerce")
         return df
 
@@ -107,7 +106,6 @@ def load_or_create_live_file() -> pd.DataFrame:
         shutil.copy(BASE_FILE, LIVE_FILE)
         df = pd.read_parquet(LIVE_FILE)
         if "date" in df.columns:
-            # Parse to datetime but preserve hourly timestamps — no .dt.normalize()
             df["date"] = pd.to_datetime(df["date"], errors="coerce")
         return df
 
@@ -116,28 +114,29 @@ def load_or_create_live_file() -> pd.DataFrame:
 
 # DATE LOGIC
 
-def get_missing_dates(existing_df: pd.DataFrame) -> list[pd.Timestamp]:
-    yesterday = get_yesterday()
+def get_missing_info(existing_df: pd.DataFrame) -> tuple[pd.Timestamp | None, list[int]]:
+    """
+    Returns (cutoff_datetime, years_needed).
+    - cutoff_datetime: the max datetime already in the dataset; fetch everything after this.
+    - years_needed: list of years to download from DEFRA.
+    Returns (None, []) if the dataset is already up to date.
+    """
+    yesterday_end = get_yesterday_end()
 
     if existing_df.empty or "date" not in existing_df.columns:
-        return [yesterday]
+        return None, [yesterday_end.year]
 
     dates = pd.to_datetime(existing_df["date"], errors="coerce").dropna()
     if dates.empty:
-        return [yesterday]
+        return None, [yesterday_end.year]
 
-    max_date = dates.max().normalize()
+    max_dt = dates.max()
 
-    if max_date >= yesterday:
-        return []
+    if max_dt >= yesterday_end:
+        return None, []  # already up to date
 
-    return list(
-        pd.date_range(
-            start=max_date + pd.Timedelta(days=1),
-            end=yesterday,
-            freq="D"
-        )
-    )
+    years_needed = list(range(max_dt.year, yesterday_end.year + 1))
+    return max_dt, years_needed
 
 
 # DEFRA FETCHING
@@ -186,14 +185,20 @@ def fetch_site_year_rdata(site_id: str, year: int) -> pd.DataFrame | None:
         return None
 
 
-def fetch_dates_from_defra(metadata_df: pd.DataFrame, dates_to_fetch: list[pd.Timestamp]) -> pd.DataFrame:
-    if not dates_to_fetch:
+def fetch_dates_from_defra(
+    metadata_df: pd.DataFrame,
+    cutoff_dt: pd.Timestamp | None,
+    years_needed: list[int]
+) -> pd.DataFrame:
+    """
+    Fetch all hourly rows after cutoff_dt and up to end of yesterday.
+    If cutoff_dt is None, fetches all rows up to end of yesterday.
+    """
+    if not years_needed:
         return pd.DataFrame(columns=COLS_TO_KEEP)
 
+    yesterday_end = get_yesterday_end()
     site_name_map = get_site_name_map(metadata_df)
-    years_needed = sorted({d.year for d in dates_to_fetch})
-    target_dates_set = {pd.Timestamp(d).normalize() for d in dates_to_fetch}
-
     dfs = []
 
     for site_id in WALES_ACTIVE_SITE_IDS:
@@ -210,8 +215,10 @@ def fetch_dates_from_defra(metadata_df: pd.DataFrame, dates_to_fetch: list[pd.Ti
             if "date" not in df.columns:
                 continue
 
-            # Compare date part only — do NOT overwrite the hourly timestamp
-            df = df[df["date"].dt.normalize().isin(target_dates_set)]
+            # Filter: strictly after the cutoff hour, up to end of yesterday
+            if cutoff_dt is not None:
+                df = df[df["date"] > cutoff_dt]
+            df = df[df["date"] <= yesterday_end]
 
             if df.empty:
                 continue
@@ -230,23 +237,22 @@ def fetch_dates_from_defra(metadata_df: pd.DataFrame, dates_to_fetch: list[pd.Ti
 def merge_new_data(
     existing_df: pd.DataFrame,
     new_df: pd.DataFrame,
-    dates_fetched: list[pd.Timestamp]
+    cutoff_dt: pd.Timestamp | None
 ) -> pd.DataFrame:
-    refresh_set = {pd.Timestamp(d).normalize() for d in dates_fetched}
-
+    """
+    Keep existing rows up to and including cutoff_dt, then append new rows.
+    """
     if existing_df.empty:
         merged = new_df.copy()
     else:
         existing_df = existing_df.copy()
-        # Parse to datetime preserving hours — no .dt.normalize() on the column itself
         existing_df["date"] = pd.to_datetime(
             existing_df["date"], errors="coerce")
-        # Use .dt.normalize() only for the comparison, not to overwrite the column
-        existing_df = existing_df[~existing_df["date"].dt.normalize().isin(
-            refresh_set)]
+        if cutoff_dt is not None:
+            # Retain everything up to and including the cutoff point
+            existing_df = existing_df[existing_df["date"] <= cutoff_dt]
         merged = pd.concat([existing_df, new_df], ignore_index=True)
 
-    # Dedup on date + site_id — safe now because date includes time, so hourly rows are unique
     dedupe_cols = [c for c in ["date", "site_id", "code"]
                    if c in merged.columns]
     if dedupe_cols:
@@ -259,29 +265,29 @@ def merge_new_data(
     return merged
 
 
-# Main Refresh
+# MAIN
+
 def refresh_live_data() -> pd.DataFrame:
     ensure_data_dir()
 
     metadata_df = load_metadata()
     existing_df = load_or_create_live_file()
-    dates_to_fetch = get_missing_dates(existing_df)
+    cutoff_dt, years_needed = get_missing_info(existing_df)
 
-    if not dates_to_fetch:
+    if not years_needed:
         print("Live dataset is up to date.")
         return existing_df
 
-    print("Fetching missing dates:", [
-          d.strftime("%Y-%m-%d") for d in dates_to_fetch])
+    print(f"Fetching data after: {cutoff_dt} for years: {years_needed}")
 
-    new_df = fetch_dates_from_defra(metadata_df, dates_to_fetch)
+    new_df = fetch_dates_from_defra(metadata_df, cutoff_dt, years_needed)
 
-    # Important: do NOT overwrite good data with an empty update
+    # if no new data, dont update
     if new_df.empty:
         print("No new rows were fetched. Keeping existing live dataset unchanged.")
         return existing_df
 
-    updated_df = merge_new_data(existing_df, new_df, dates_to_fetch)
+    updated_df = merge_new_data(existing_df, new_df, cutoff_dt)
     updated_df.to_parquet(LIVE_FILE, index=False)
     print(f"Updated live dataset saved to: {LIVE_FILE}")
 
