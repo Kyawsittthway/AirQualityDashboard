@@ -30,6 +30,24 @@ from utils.calculations import (
 )
 from datetime import date, timedelta
 
+RATIFIED_CUTOFF = pd.Timestamp("2025-09-30 00:00:00")
+
+# Reusable style dicts for quick-select button states
+_BTN_BASE = {
+    "background": "var(--bg-tertiary)",
+    "borderColor": "var(--border-primary)",
+    "color": "var(--text-secondary)",
+    "boxShadow": "none",
+    "transform": "scale(1)",
+}
+_BTN_ACTIVE = {
+    "background": "rgba(143, 181, 105, 0.15)",
+    "borderColor": "var(--sage-500)",
+    "color": "var(--sage-300)",
+    "boxShadow": "0 0 0 3px rgba(143, 181, 105, 0.15), 0 0 16px rgba(143, 181, 105, 0.35)",
+    "transform": "scale(1.02)",
+}
+
 
 @callback(
     Output("toggle-uk", "className"),
@@ -82,8 +100,33 @@ def toggle_theme(dark_clicks, light_clicks, current):
         return "toggle-option", "toggle-option active", "light", "light"
 
 
+@callback(
+    Output("toggle-all", "className"),
+    Output("toggle-ratified", "className"),
+    Output("dq_store", "data"),
+    Input("toggle-all", "n_clicks"),
+    Input("toggle-ratified", "n_clicks"),
+    State("dq_store", "data"),
+)
+def toggle_data_quality(all_clicks, ratified_clicks, current):
+    """Handle All/Ratified data quality toggle."""
+    if not all_clicks and not ratified_clicks:
+        return "toggle-option active", "toggle-option", "All"
+
+    triggered = callback_context.triggered
+    if not triggered:
+        return "toggle-option active", "toggle-option", "All"
+
+    button_id = triggered[0]["prop_id"].split(".")[0]
+
+    if button_id == "toggle-all":
+        return "toggle-option active", "toggle-option", "All"
+    else:
+        return "toggle-option", "toggle-option active", "Ratified"
+
+
 def register_callbacks(app, wales_df, wales_df_long):
-    # Precomputed maps to reduce repetition and increase dashboard's speed
+    # Precomputed maps to reduce repetition and increase dashboard speed
 
     site_to_pollutants = (
         wales_df_long.groupby("site")["pollutants"].apply(set).to_dict()
@@ -150,6 +193,12 @@ def register_callbacks(app, wales_df, wales_df_long):
             return None, None
 
         return min_allowed, max_allowed
+
+    def apply_dq_cap(start_dt, end_dt, dq):
+        """Cap end_dt to ratified cutoff if Ratified mode is active."""
+        if dq == "Ratified":
+            end_dt = min(end_dt, RATIFIED_CUTOFF)
+        return start_dt, end_dt
 
     # ─────────────────────────────────────────────────────────────
     # 1) Update site dropdown OPTIONS based on pollutant + date range
@@ -292,17 +341,19 @@ def register_callbacks(app, wales_df, wales_df_long):
         }
 
     # ─────────────────────────────────────────────────────────────
-    # 5) Update ONLY date_range bounds from store
+    # 5) Update date_range bounds — also respects ratified cap
     # ─────────────────────────────────────────────────────────────
 
     @app.callback(
         Output("date_range", "min_date_allowed"),
         Output("date_range", "max_date_allowed"),
         Input("filter_store", "data"),
+        Input("dq_store", "data"),
     )
-    def update_date_bounds(store):
+    def update_date_bounds(store, dq):
         if not store:
-            return global_min, global_max
+            max_allowed = RATIFIED_CUTOFF.date() if dq == "Ratified" else global_max
+            return global_min, max_allowed
 
         sites = store.get("sites", []) or []
         pollutant = store.get("pollutant")
@@ -310,7 +361,11 @@ def register_callbacks(app, wales_df, wales_df_long):
         min_allowed, max_allowed = compute_allowed_bounds(sites, pollutant)
 
         if min_allowed is None or max_allowed is None:
-            return global_min, global_max
+            max_allowed = RATIFIED_CUTOFF.date() if dq == "Ratified" else global_max
+            return global_min, max_allowed
+
+        if dq == "Ratified":
+            max_allowed = min(max_allowed, RATIFIED_CUTOFF.date())
 
         return min_allowed, max_allowed
 
@@ -340,10 +395,10 @@ def register_callbacks(app, wales_df, wales_df_long):
 
     # ─────────────────────────────────────────────────────────────
     # 7) Manage date selection
-    #    - Reset clears selected dates
-    #    - Quick buttons set dates and persist to store
-    #    - Changing sites/pollutant restores from store if valid,
-    #      otherwise clears if dates fall outside allowed bounds
+    #    - Reset clears dates
+    #    - Quick buttons set and persist dates to store
+    #    - Changing sites/pollutant/dq restores from store if valid
+    #    - Ratified mode caps selected end date to cutoff
     # ─────────────────────────────────────────────────────────────
 
     @app.callback(
@@ -355,6 +410,7 @@ def register_callbacks(app, wales_df, wales_df_long):
         Input("yday", "n_clicks"),
         Input("last_week", "n_clicks"),
         Input("last_month", "n_clicks"),
+        Input("dq_store", "data"),
         State("date_range", "start_date"),
         State("date_range", "end_date"),
         State("date-store", "data"),
@@ -362,35 +418,50 @@ def register_callbacks(app, wales_df, wales_df_long):
     def manage_date_selection(
         n_clicks, sites, pollutant,
         yday, last_week, last_month,
+        dq,
         start_date, end_date,
         stored_dates,
     ):
         triggered = callback_context.triggered_id
         sites = sites or []
 
-        # Reset clears everything including the store
         if triggered == "reset_btn":
             return None, None
 
-        # Quick date buttons — set directly and store handles persistence
         today = date.today()
+
         if triggered == "yday":
             yesterday = today - timedelta(days=1)
-            return yesterday, yesterday
+            end = min(yesterday, RATIFIED_CUTOFF.date()
+                      ) if dq == "Ratified" else yesterday
+            return yesterday, end
         elif triggered == "last_week":
-            return today - timedelta(days=7), today
+            start = today - timedelta(days=7)
+            end = min(today, RATIFIED_CUTOFF.date()
+                      ) if dq == "Ratified" else today
+            return start, end
         elif triggered == "last_month":
-            return today - timedelta(days=30), today
+            start = today - timedelta(days=30)
+            end = min(today, RATIFIED_CUTOFF.date()
+                      ) if dq == "Ratified" else today
+            return start, end
 
-        # Sites/pollutant changed — validate against allowed bounds
         min_allowed, max_allowed = compute_allowed_bounds(sites, pollutant)
 
         if min_allowed is None or max_allowed is None:
             return None, None
 
-        # Prefer stored dates over picker state when triggered by dropdown changes
+        if dq == "Ratified":
+            max_allowed = min(max_allowed, RATIFIED_CUTOFF.date())
+
         effective_start = stored_dates["start"] if stored_dates else start_date
         effective_end = stored_dates["end"] if stored_dates else end_date
+
+        if dq == "Ratified" and effective_end:
+            effective_end = str(min(
+                pd.to_datetime(effective_end).date(),
+                RATIFIED_CUTOFF.date()
+            ))
 
         if not has_full_date_range(effective_start, effective_end):
             return no_update, no_update
@@ -490,8 +561,9 @@ def register_callbacks(app, wales_df, wales_df_long):
         Input("pol_drop", "value"),
         Input("date_range", "start_date"),
         Input("date_range", "end_date"),
+        Input("dq_store", "data"),
     )
-    def update_graph(selected_sites, pollutant, start_date, end_date):
+    def update_graph(selected_sites, pollutant, start_date, end_date, dq):
         selected_sites = selected_sites or []
 
         if (
@@ -509,10 +581,9 @@ def register_callbacks(app, wales_df, wales_df_long):
             return fig
 
         start_dt = pd.to_datetime(start_date)
-        end_dt = (
-            pd.to_datetime(end_date) + pd.Timedelta(days=1) -
-            pd.Timedelta(seconds=1)
-        )
+        end_dt = pd.to_datetime(end_date) + \
+            pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+        start_dt, end_dt = apply_dq_cap(start_dt, end_dt, dq)
 
         df = wales_df[
             (wales_df["site"].isin(selected_sites))
@@ -579,8 +650,9 @@ def register_callbacks(app, wales_df, wales_df_long):
         Input("pol_drop", "value"),
         Input("date_range", "start_date"),
         Input("date_range", "end_date"),
+        Input("dq_store", "data"),
     )
-    def update_summary_stats(sites, pollutant, start_date, end_date):
+    def update_summary_stats(sites, pollutant, start_date, end_date, dq):
         if not sites or not pollutant or not start_date or not end_date:
             return html.Div(
                 "Please select site(s), a pollutant, and a date range to generate statistics.",
@@ -590,6 +662,7 @@ def register_callbacks(app, wales_df, wales_df_long):
         start_dt = pd.to_datetime(start_date)
         end_dt = pd.to_datetime(end_date) + \
             pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+        start_dt, end_dt = apply_dq_cap(start_dt, end_dt, dq)
 
         mask = (
             wales_df_long["site"].isin(sites)
@@ -677,8 +750,9 @@ def register_callbacks(app, wales_df, wales_df_long):
         Input("pol_drop", "value"),
         Input("date_range", "start_date"),
         Input("date_range", "end_date"),
+        Input("dq_store", "data"),
     )
-    def update_completeness(sites, pollutant, start_date, end_date):
+    def update_completeness(sites, pollutant, start_date, end_date, dq):
         """Update completeness panel."""
         if not sites or not pollutant or not start_date or not end_date:
             return "--", []
@@ -686,6 +760,7 @@ def register_callbacks(app, wales_df, wales_df_long):
         start_dt = pd.to_datetime(start_date)
         end_dt = pd.to_datetime(end_date) + \
             pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+        start_dt, end_dt = apply_dq_cap(start_dt, end_dt, dq)
 
         df_filtered = wales_df[
             (wales_df["site"].isin(sites))
@@ -726,3 +801,52 @@ def register_callbacks(app, wales_df, wales_df_long):
             )
 
         return overall_text, bars
+
+    # ─────────────────────────────────────────────────────────────
+    # 13) Quick select button active glow
+    # ─────────────────────────────────────────────────────────────
+    _BTN_BASE = {
+        "background": "var(--bg-tertiary)",
+        "borderColor": "var(--border-primary)",
+        "color": "var(--text-secondary)",
+        "boxShadow": "none",
+        "transform": "scale(1)",
+    }
+    _BTN_ACTIVE = {
+        "background": "rgba(143, 181, 105, 0.15)",
+        "borderColor": "var(--sage-500)",
+        "color": "var(--sage-300)",
+        "boxShadow": "0 0 0 3px rgba(143, 181, 105, 0.15), 0 0 16px rgba(143, 181, 105, 0.35)",
+        "transform": "scale(1.02)",
+    }
+
+    @app.callback(
+        Output("yday", "className"),
+        Output("yday", "style"),
+        Output("last_week", "className"),
+        Output("last_week", "style"),
+        Output("last_month", "className"),
+        Output("last_month", "style"),
+        Input("yday", "n_clicks"),
+        Input("last_week", "n_clicks"),
+        Input("last_month", "n_clicks"),
+        Input("reset_btn", "n_clicks"),
+        Input("date_range", "start_date"),
+    )
+    def update_quick_btn_active(yday, last_week, last_month, reset, start_date):
+        triggered = callback_context.triggered_id
+        base_cls = "quick-date-btn"
+        active_cls = "quick-date-btn active"
+
+        # Reset or manual calendar pick — clear all
+        if triggered in ("reset_btn", "date_range") or not triggered:
+            return base_cls, _BTN_BASE, base_cls, _BTN_BASE, base_cls, _BTN_BASE
+
+        if triggered == "yday":
+            return active_cls, _BTN_ACTIVE, base_cls, _BTN_BASE, base_cls, _BTN_BASE
+        elif triggered == "last_week":
+            return base_cls, _BTN_BASE, active_cls, _BTN_ACTIVE, base_cls, _BTN_BASE
+        elif triggered == "last_month":
+            return base_cls, _BTN_BASE, base_cls, _BTN_BASE, active_cls, _BTN_ACTIVE
+
+        return base_cls, _BTN_BASE, base_cls, _BTN_BASE, base_cls, _BTN_BASE

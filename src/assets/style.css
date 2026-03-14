@@ -760,3 +760,10 @@ body {
   flex-direction: row;
   gap: 6px;
 }
+
+.quick-date-btn.active {
+  background: rgba(143, 181, 105, 0.15);
+  border-color: var(--sage-500);
+  color: var(--sage-300);
+  box-shadow: 0 0 0 3px rgba(143, 181, 105, 0.15), 0 0 12px rgba(143, 181, 105, 0.2);
+}
