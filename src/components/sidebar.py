@@ -78,6 +78,31 @@ def create_sidebar():
                     dcc.Store(id="theme-store", data="dark"),
                 ],
             ),
+            html.Div(
+                className="filter-section",
+                children=[
+                    html.Div("Data Quality", className="filter-label"),
+                    html.Div(
+                        className="toggle-container",
+                        children=[
+                            html.Button(
+                                "All",
+                                id="toggle-all",
+                                className="toggle-option active",
+                                n_clicks=0,
+                            ),
+                            html.Button(
+                                ["Ratified", html.Br(), html.Span(
+                                    "(Up to 30-09-2025)", style={"fontSize": "0.75em"})],
+                                id="toggle-ratified",
+                                className="toggle-option",
+                                n_clicks=0,
+                            ),
+                        ],
+                    ),
+                    dcc.Store(id="dq_store", data="All"),
+                ],
+            ),
             # Reset Button
             html.Button(
                 "↻ Reset All Filters", id="reset_btn", className="reset-btn", n_clicks=0
