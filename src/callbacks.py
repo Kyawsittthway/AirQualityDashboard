@@ -29,8 +29,6 @@ from utils.calculations import (
 )
 from dataloader import load_data
 
-wales_df, wales_df_long = load_data()
-
 
 @callback(
     Output("toggle-uk", "className"),
@@ -484,166 +482,166 @@ def register_callbacks(app, wales_df, wales_df_long):
         )
         return fig
 
-
-@callback(
-    Output("meta-stations", "children"),
-    Output("meta-pollutant", "children"),
-    Output("meta-period", "children"),
-    Input("site_drop", "value"),
-    Input("pol_drop", "value"),
-    Input("date_range", "start_date"),
-    Input("date_range", "end_date"),
-)
-def update_topbar(sites, pollutant, start_date, end_date):
-    """Update topbar metadata."""
-    stations_text = f"{len(sites)}" if sites else "--"
-    pollutant_text = (
-        POLLUTANT_DISPLAY_NAMES.get(
-            pollutant, pollutant) if pollutant else "--"
+    @app.callback(
+        Output("meta-stations", "children"),
+        Output("meta-pollutant", "children"),
+        Output("meta-period", "children"),
+        Input("site_drop", "value"),
+        Input("pol_drop", "value"),
+        Input("date_range", "start_date"),
+        Input("date_range", "end_date"),
     )
-    period_text = format_date_range(start_date, end_date)
-
-    return stations_text, pollutant_text, period_text
-
-
-@callback(
-    Output("stats_container", "children"),
-    Input("site_drop", "value"),
-    Input("pol_drop", "value"),
-    Input("date_range", "start_date"),
-    Input("date_range", "end_date"),
-)
-def update_summary_stats(sites, pollutant, start_date, end_date):
-    if not sites or not pollutant or not start_date or not end_date:
-        return html.Div(
-            "Please select site(s), a pollutant, and a date range to generate statistics.",
-            className="text-muted italic",
+    def update_topbar(sites, pollutant, start_date, end_date):
+        """Update topbar metadata."""
+        stations_text = f"{len(sites)}" if sites else "--"
+        pollutant_text = (
+            POLLUTANT_DISPLAY_NAMES.get(
+                pollutant, pollutant) if pollutant else "--"
         )
+        period_text = format_date_range(start_date, end_date)
 
-    mask = (
-        wales_df_long["site"].isin(sites)
-        & (wales_df_long["pollutants"] == pollutant)
-        & (wales_df_long["date"] >= pd.to_datetime(start_date))
-        & (wales_df_long["date"] <= pd.to_datetime(end_date))
+        return stations_text, pollutant_text, period_text
+
+    @app.callback(
+        Output("stats_container", "children"),
+        Input("site_drop", "value"),
+        Input("pol_drop", "value"),
+        Input("date_range", "start_date"),
+        Input("date_range", "end_date"),
     )
-
-    filtered_df = wales_df_long.loc[mask].copy()
-
-    if filtered_df.empty:
-        return html.Div(
-            f"No {pollutant} data available for the selected sites in this timeframe."
-        )
-
-    summary_df = calculate_summary_stats(filtered_df)
-
-    if summary_df.empty:
-        return html.Div("No statistics available for the current filters.")
-
-    return html.Div(
-        dash_table.DataTable(
-            data=summary_df.to_dict("records"),
-            columns=[{"name": col, "id": col} for col in summary_df.columns],
-            sort_action="native",
-            page_size=10,
-            style_table={
-                "overflowX": "auto",
-                "width": "100%",
-                "backgroundColor": "transparent",
-            },
-            style_cell={
-                "textAlign": "center",
-                "padding": "12px 10px",
-                "fontFamily": "Inter, sans-serif",
-                "fontSize": "14px",
-                "color": "var(--text-primary)",
-                "backgroundColor": "var(--bg-secondary)",
-                "border": "none",
-            },
-            style_header={
-                "fontWeight": "700",
-                "color": "var(--sage-500)",
-                "backgroundColor": "var(--bg-tertiary)",
-                "borderBottom": "1px solid rgba(255, 255, 255, 0.08)",
-                "textTransform": "uppercase",
-                "letterSpacing": "0.4px",
-                "fontSize": "12px",
-            },
-            style_data={
-                "backgroundColor": "var(--bg-secondary)",
-                "color": "var(--text-primary)",
-                "borderBottom": "1px solid rgba(255, 255, 255, 0.06)",
-            },
-            style_data_conditional=[
-                {
-                    "if": {"row_index": "odd"},
-                    "backgroundColor": "var(--bg-tertiary)",
-                },
-                {
-                    "if": {"state": "active"},
-                    "backgroundColor": "rgba(159, 212, 181, 0.12)",
-                    "border": "1px solid var(--sage-500)",
-                },
-                {
-                    "if": {"state": "selected"},
-                    "backgroundColor": "rgba(159, 212, 181, 0.18)",
-                    "border": "1px solid var(--sage-500)",
-                },
-            ],
-            style_as_list_view=True,
-        ),
-        className="stats-table",
-    )
-
-
-@callback(
-    Output("completeness-overall", "children"),
-    Output("completeness-bars", "children"),
-    Input("site_drop", "value"),
-    Input("pol_drop", "value"),
-    Input("date_range", "start_date"),
-    Input("date_range", "end_date"),
-)
-def update_completeness(sites, pollutant, start_date, end_date):
-    """Update completeness panel."""
-    if not sites or not pollutant or not start_date or not end_date:
-        return "--", []
-
-    df_filtered = wales_df[
-        (wales_df["site"].isin(sites))
-        & (wales_df["date"] >= start_date)
-        & (wales_df["date"] <= end_date)
-    ]
-
-    # Overall
-    overall = calculate_completeness(df_filtered, pollutant)
-    overall_text = f"{overall}%"
-
-    # Per-site
-    site_results = calculate_completeness_by_site(
-        df_filtered, sites, pollutant)
-
-    bars = []
-    for result in site_results:
-        bars.append(
-            html.Div(
-                className="completeness-item",
-                children=[
-                    html.Div(result["site"], className="completeness-label"),
-                    html.Div(
-                        className="completeness-bar-track",
-                        children=[
-                            html.Div(
-                                className=f"completeness-bar-fill status-{result['status']}",
-                                style={"width": f"{result['completeness']}%"},
-                            )
-                        ],
-                    ),
-                    html.Div(
-                        f"{result['completeness']}%",
-                        className="completeness-percentage",
-                    ),
-                ],
+    def update_summary_stats(sites, pollutant, start_date, end_date):
+        if not sites or not pollutant or not start_date or not end_date:
+            return html.Div(
+                "Please select site(s), a pollutant, and a date range to generate statistics.",
+                className="text-muted italic",
             )
+
+        mask = (
+            wales_df_long["site"].isin(sites)
+            & (wales_df_long["pollutants"] == pollutant)
+            & (wales_df_long["date"] >= pd.to_datetime(start_date))
+            & (wales_df_long["date"] <= pd.to_datetime(end_date))
         )
 
-    return overall_text, bars
+        filtered_df = wales_df_long.loc[mask].copy()
+
+        if filtered_df.empty:
+            return html.Div(
+                f"No {pollutant} data available for the selected sites in this timeframe."
+            )
+
+        summary_df = calculate_summary_stats(filtered_df)
+
+        if summary_df.empty:
+            return html.Div("No statistics available for the current filters.")
+
+        return html.Div(
+            dash_table.DataTable(
+                data=summary_df.to_dict("records"),
+                columns=[{"name": col, "id": col}
+                         for col in summary_df.columns],
+                sort_action="native",
+                page_size=10,
+                style_table={
+                    "overflowX": "auto",
+                    "width": "100%",
+                    "backgroundColor": "transparent",
+                },
+                style_cell={
+                    "textAlign": "center",
+                    "padding": "12px 10px",
+                    "fontFamily": "Inter, sans-serif",
+                    "fontSize": "14px",
+                    "color": "var(--text-primary)",
+                    "backgroundColor": "var(--bg-secondary)",
+                    "border": "none",
+                },
+                style_header={
+                    "fontWeight": "700",
+                    "color": "var(--sage-500)",
+                    "backgroundColor": "var(--bg-tertiary)",
+                    "borderBottom": "1px solid rgba(255, 255, 255, 0.08)",
+                    "textTransform": "uppercase",
+                    "letterSpacing": "0.4px",
+                    "fontSize": "12px",
+                },
+                style_data={
+                    "backgroundColor": "var(--bg-secondary)",
+                    "color": "var(--text-primary)",
+                    "borderBottom": "1px solid rgba(255, 255, 255, 0.06)",
+                },
+                style_data_conditional=[
+                    {
+                        "if": {"row_index": "odd"},
+                        "backgroundColor": "var(--bg-tertiary)",
+                    },
+                    {
+                        "if": {"state": "active"},
+                        "backgroundColor": "rgba(159, 212, 181, 0.12)",
+                        "border": "1px solid var(--sage-500)",
+                    },
+                    {
+                        "if": {"state": "selected"},
+                        "backgroundColor": "rgba(159, 212, 181, 0.18)",
+                        "border": "1px solid var(--sage-500)",
+                    },
+                ],
+                style_as_list_view=True,
+            ),
+            className="stats-table",
+        )
+
+    @app.callback(
+        Output("completeness-overall", "children"),
+        Output("completeness-bars", "children"),
+        Input("site_drop", "value"),
+        Input("pol_drop", "value"),
+        Input("date_range", "start_date"),
+        Input("date_range", "end_date"),
+    )
+    def update_completeness(sites, pollutant, start_date, end_date):
+        """Update completeness panel."""
+        if not sites or not pollutant or not start_date or not end_date:
+            return "--", []
+
+        df_filtered = wales_df[
+            (wales_df["site"].isin(sites))
+            & (wales_df["date"] >= start_date)
+            & (wales_df["date"] <= end_date)
+        ]
+
+        # Overall
+        overall = calculate_completeness(df_filtered, pollutant)
+        overall_text = f"{overall}%"
+
+        # Per-site
+        site_results = calculate_completeness_by_site(
+            df_filtered, sites, pollutant)
+
+        bars = []
+        for result in site_results:
+            bars.append(
+                html.Div(
+                    className="completeness-item",
+                    children=[
+                        html.Div(result["site"],
+                                 className="completeness-label"),
+                        html.Div(
+                            className="completeness-bar-track",
+                            children=[
+                                html.Div(
+                                    className=f"completeness-bar-fill status-{result['status']}",
+                                    style={
+                                        "width": f"{result['completeness']}%"},
+                                )
+                            ],
+                        ),
+                        html.Div(
+                            f"{result['completeness']}%",
+                            className="completeness-percentage",
+                        ),
+                    ],
+                )
+            )
+
+        return overall_text, bars
