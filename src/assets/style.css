@@ -702,7 +702,7 @@ body {
 }
 
 .kpi-card .kpi-value {
-  font-size: 22px;
+  font-size: 12px;
   font-weight: 700;
   line-height: 1.1;
   color: var(--text-primary);
