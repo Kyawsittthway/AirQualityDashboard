@@ -89,6 +89,8 @@ def create_layout(wales_df_long):
                                         )
                                     ]
                                 ),
+                                dcc.Store(id="date-store",
+                                          storage_type="session"),
 
                                 # Bottom Row: Stats + Completeness
                                 html.Div(

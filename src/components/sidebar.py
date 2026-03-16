@@ -78,6 +78,31 @@ def create_sidebar():
                     dcc.Store(id="theme-store", data="dark"),
                 ],
             ),
+            html.Div(
+                className="filter-section",
+                children=[
+                    html.Div("Data Quality", className="filter-label"),
+                    html.Div(
+                        className="toggle-container",
+                        children=[
+                            html.Button(
+                                "All",
+                                id="toggle-all",
+                                className="toggle-option active",
+                                n_clicks=0,
+                            ),
+                            html.Button(
+                                ["Ratified", html.Br(), html.Span(
+                                    "(Up to 30-09-2025)", style={"fontSize": "0.75em"})],
+                                id="toggle-ratified",
+                                className="toggle-option",
+                                n_clicks=0,
+                            ),
+                        ],
+                    ),
+                    dcc.Store(id="dq_store", data="All"),
+                ],
+            ),
             # Reset Button
             html.Button(
                 "↻ Reset All Filters", id="reset_btn", className="reset-btn", n_clicks=0
@@ -109,7 +134,28 @@ def create_sidebar():
                     ),
                 ],
             ),
+
+
             dcc.Store(id="filter_store"),
+
+            # Quick Date Range Buttons
+            html.Div(
+                className="filter-section",
+                children=[
+                    html.Div("Quick Select", className="filter-label"),
+                    html.Div(
+                        className="quick-date-btns",
+                        children=[
+                            html.Button("Yesterday", id="yday",
+                                        className="quick-date-btn", n_clicks=0),
+                            html.Button("Last 7 days", id="last_week",
+                                        className="quick-date-btn", n_clicks=0),
+                            html.Button("Last 30 days", id="last_month",
+                                        className="quick-date-btn", n_clicks=0)
+                        ]
+                    )
+                ]
+            ),
             # Date Range
             html.Div(
                 className="filter-section",
