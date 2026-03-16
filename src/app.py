@@ -8,7 +8,7 @@ from callbacks import register_callbacks
 
 def create_app() -> Dash:
     """Initialise the Dash app, load data, set layout, and register callbacks."""
-    app = Dash(__name__)
+    app = Dash(__name__, use_pages=True, suppress_callback_exceptions=True)
 
     # Load raw wide-format data and the reshaped long-format version
     wales_df, wales_df_long = load_data()
