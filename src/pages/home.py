@@ -2,15 +2,11 @@ import dash
 from dash import html, dcc
 
 
-dash.register_page(__name__, path="/", name="Overview")
+dash.register_page(__name__, path="/", name="Air Quality | Overview")
 
 
 layout = html.Div(
-    id="app-container",
-    **{"data-theme": "dark"},
-    children=[
-        # Main content area
-        html.Div(
+            # Main content area
             className="content",
             children=[
                 html.Div(
@@ -100,7 +96,7 @@ layout = html.Div(
                                                         "--",
                                                         id="completeness-overall",
                                                         style={
-                                                            "fontSize": "56px",
+                                                            "fontSize": "24px",
                                                             "fontWeight": "800",
                                                             "background": "linear-gradient(135deg, var(--sage-300), var(--sage-500))",
                                                             "WebkitBackgroundClip": "text",
@@ -135,5 +131,4 @@ layout = html.Div(
                 ),
             ]
         )
-    ]
-)
+    
