@@ -25,4 +25,4 @@ def create_app() -> Dash:
 if __name__ == "__main__":
     # Run the development server — disable debug=True in production
     app = create_app()
-    app.run(debug=True, port=8054)
+    app.run(debug=True, use_reloader=False, port=8055)

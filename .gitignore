@@ -21,3 +21,10 @@ Thumbs.db
 
 # Environment variables
 .env
+
+#temp rdata files and live parquet
+data/*.RData
+!data/AURN_metadata.RData
+data/live_air_quality.parquet
+__pycache__/
+*.pyc

@@ -1,4 +1,4 @@
-from dash import html, page_container
+from dash import dcc, html, page_container
 from components.sidebar import create_sidebar
 
 
@@ -7,6 +7,7 @@ def create_layout(wales_df_long):
         id="app-container",
         **{"data-theme": "dark"},
         children=[
+            
             # Sidebar
             create_sidebar(),
 
@@ -28,6 +29,15 @@ def create_layout(wales_df_long):
                             html.Div(
                                 className="topbar-meta",
                                 children=[
+                                    # Navigation
+                                    # html.Div(
+                                    #     className="topbar-nav",
+                                    #     children=[
+                                    #         dcc.Link("Overview", href="/", id="nav-home", className="nav-link"),
+                                    #         dcc.Link("Comparison", href="/comparison", id="nav-comparison", className="nav-link"),
+                                    #     ],
+                                    # ),
+                                    # Metadata pills
                                     html.Div(
                                         className="meta-pill",
                                         children=["Stations:", html.Strong("--", id="meta-stations")],
