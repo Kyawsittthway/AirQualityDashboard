@@ -352,11 +352,11 @@ body {
    ─────────────────────────────────────────────────────── */
 
 .Select-control {
-  min-height: 44px !important;
-  padding: 4px 8px !important;
   background: var(--bg-tertiary) !important;
   border: 1px solid var(--border-primary) !important;
   border-radius: var(--radius-md) !important;
+  padding: 4px 8px !important;
+  min-height: 44px !important;
   transition: all var(--transition-base) !important;
 }
 
@@ -368,8 +368,8 @@ body {
 }
 
 .Select-placeholder,
-.Select--single > .Select-control .Select-value {
-  color: var(--text-primary) !important;
+.Select--single>.Select-control .Select-value {
+  color: var(--text-secondary) !important;
   font-size: 15px !important;
   line-height: 1.4 !important;
 }
@@ -379,19 +379,18 @@ body {
 }
 
 .Select-menu-outer {
-  margin-top: 8px !important;
-  overflow: hidden !important;
-  background: var(--bg-primary) !important;
-  color: var(--text-primary) !important;
+  background: var(--bg-tertiary) !important;
   border: 1px solid var(--border-primary) !important;
   border-radius: var(--radius-md) !important;
   box-shadow: var(--shadow-lg) !important;
+  margin-top: 8px !important;
+  overflow: hidden !important;
 }
 
 .Select-option {
-  padding: 12px 16px !important;
   background: transparent !important;
   color: var(--text-primary) !important;
+  padding: 12px 16px !important;
   font-size: 15px !important;
   transition: background var(--transition-fast) !important;
 }
@@ -407,20 +406,21 @@ body {
   font-weight: 600 !important;
 }
 
+/* Multi-select chips */
 .Select--multi .Select-value {
-  margin: 2px !important;
-  padding: 4px 8px !important;
   background: var(--sage-500) !important;
-  color: var(--text-primary) !important;
   border: none !important;
   border-radius: var(--radius-sm) !important;
+  color: var(--text-primary) !important;
+  padding: 4px 8px !important;
   font-size: 13px !important;
   font-weight: 600 !important;
+  margin: 2px !important;
 }
 
 .Select--multi .Select-value-icon {
-  padding: 0 4px !important;
   border: none !important;
+  padding: 0 4px !important;
 }
 
 .Select--multi .Select-value-icon:hover {
@@ -428,39 +428,34 @@ body {
   color: var(--text-primary) !important;
 }
 
-.dropdown-sidebar .Select-control {
-  background-color: var(--bg-secondary) !important;
-  border: 1px solid var(--border-primary) !important;
-}
-
-/* Date picker */
-
+/* Date Picker */
 .DateRangePickerInput {
-  display: flex;
-  align-items: center;
-  background-color: var(--bg-secondary) !important;
+  background: var(--bg-tertiary) !important;
   border: 1px solid var(--border-primary) !important;
-}
-
-.DateInput {
-  width: 40% !important;
-  background: transparent !important;
+  border-radius: var(--radius-md) !important;
 }
 
 .DateInput_input {
   background: transparent !important;
   color: var(--text-primary) !important;
-  border-bottom: none !important;
+  font-size: 15px !important;
+  padding: 12px 16px !important;
+  font-weight: 500 !important;
 }
 
-.CalendarMonth,
-.CalendarMonthGrid,
-.DayPickerNavigation_button,
-.CalendarDay__default {
-  background: var(--bg-primary) !important;
+.DateInput_input::placeholder {
+  color: var(--text-tertiary) !important;
+}
+
+.CalendarDay__selected,
+.CalendarDay__selected:active,
+.CalendarDay__selected:hover {
+  background: var(--sage-500) !important;
+  border-color: var(--sage-500) !important;
   color: var(--text-primary) !important;
   border: 1px solid var(--border-primary) !important;
 }
+
 
 /* ───────────────────────────────────────────────────────
    TOPBAR
