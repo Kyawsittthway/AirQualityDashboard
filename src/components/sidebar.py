@@ -4,14 +4,23 @@ Sage green accents, rounded dropdowns, WHO/UK toggle
 """
 
 from dash import html, dcc
-import dash_daq as daq
 
 
 def create_sidebar():
-    """Create Apple-style sidebar with filters."""
+    """Create Apple-style sidebar with navigation and filters."""
     return html.Div(
         id="sidebar",
         children=[
+            # Track current URL
+            dcc.Location(id="url"),
+
+            # Stores
+            dcc.Store(id="threshold-store", data="UK"),
+            dcc.Store(id="theme-store", data="dark"),
+            dcc.Store(id="dq_store", data="All"),
+            dcc.Store(id="filter_store"),
+            dcc.Store(id="date-store"),
+
             # Logo Header
             html.Div(
                 className="sidebar-header",
@@ -23,10 +32,36 @@ def create_sidebar():
                             html.Div("AirLens", className="logo-text"),
                         ],
                     ),
-                    html.Div("UK Air Quality · DEFRA",
-                             className="logo-subtitle"),
                 ],
             ),
+
+            # Navigation
+            html.Div(
+                className="filter-section",
+                children=[
+                    html.Div("Navigation", className="filter-label"),
+                    html.Div(
+                        className="sidebar-nav",
+                        children=[
+                            dcc.Link(
+                                "Overview",
+                                href="/",
+                                id="nav-home",
+                                className="nav-link",
+                            ),
+                            dcc.Link(
+                                "Comparison",
+                                href="/comparison",
+                                id="nav-comparison",
+                                className="nav-link",
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+
+            html.Div(className="sidebar-divider"),
+
             # WHO / UK Toggle
             html.Div(
                 className="filter-section",
@@ -48,11 +83,11 @@ def create_sidebar():
                                 n_clicks=0,
                             ),
                         ],
+                                n_clicks=0,
+                            ),
+                        ],
                     ),
-                    # Hidden store to track which is active
-                    dcc.Store(id="threshold-store", data="UK"),
-                ],
-            ),
+            
             # Theme Toggle
             html.Div(
                 className="filter-section",
@@ -75,7 +110,6 @@ def create_sidebar():
                             ),
                         ],
                     ),
-                    dcc.Store(id="theme-store", data="dark"),
                 ],
             ),
             html.Div(
@@ -100,13 +134,16 @@ def create_sidebar():
                             ),
                         ],
                     ),
-                    dcc.Store(id="dq_store", data="All"),
                 ],
             ),
             # Reset Button
             html.Button(
-                "↻ Reset All Filters", id="reset_btn", className="reset-btn", n_clicks=0
+                "↻ Reset All Filters",
+                id="reset_btn",
+                className="reset-btn",
+                n_clicks=0,
             ),
+            
             # Site Selection
             html.Div(
                 className="filter-section",
@@ -135,8 +172,6 @@ def create_sidebar():
                 ],
             ),
 
-
-            dcc.Store(id="filter_store"),
 
             # Quick Date Range Buttons
             html.Div(
@@ -172,3 +207,5 @@ def create_sidebar():
             ),
         ],
     )
+
+    

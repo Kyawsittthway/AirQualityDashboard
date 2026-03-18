@@ -1,8 +1,3 @@
-"""
-Integrated Utility Functions
-Combines Rosie's exceedance logic + Charles' completeness calculations
-"""
-
 import pandas as pd
 import numpy as np
 
@@ -33,9 +28,9 @@ POLLUTANT_DISPLAY_NAMES = {
 }
 
 
-def calculate_exceedance_rosie(df, pollutant, threshold_type='UK'):
+def calculate_exceedance(df, pollutant, threshold_type='UK'):
     """
-    Calculate exceedances using Rosie's sophisticated logic.
+    Calculate pollutant exceedances.
 
     Args:
         df: Filtered DataFrame (wide format)

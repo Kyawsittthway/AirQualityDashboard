@@ -19,7 +19,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from components.sidebar import create_sidebar
 from utils.calculations import (
-    calculate_exceedance_rosie,
+    calculate_exceedance,
     calculate_completeness,
     calculate_completeness_by_site,
     calculate_summary_stats,
@@ -56,7 +56,7 @@ _BTN_ACTIVE = {
     Input("toggle-uk", "n_clicks"),
     Input("toggle-who", "n_clicks"),
     State("threshold-store", "data"),
-)
+    )
 def toggle_threshold(uk_clicks, who_clicks, current):
     """Handle WHO/UK threshold toggle."""
     if not uk_clicks and not who_clicks:
@@ -93,6 +93,7 @@ def toggle_theme(dark_clicks, light_clicks, current):
         return "toggle-option active", "toggle-option", "dark", "dark"
 
     button_id = ctx.triggered[0]["prop_id"].split(".")[0]
+    button_id = ctx.triggered[0]["prop_id"].split(".")[0]
 
     if button_id == "toggle-dark":
         return "toggle-option active", "toggle-option", "dark", "dark"
@@ -123,7 +124,22 @@ def toggle_data_quality(all_clicks, ratified_clicks, current):
         return "toggle-option active", "toggle-option", "All"
     else:
         return "toggle-option", "toggle-option active", "Ratified"
+    
 
+def get_threshold_info(pollutant, standard):
+    if not pollutant or standard not in LIMITS or pollutant not in LIMITS[standard]:
+        return None
+
+    pollutant_limits = LIMITS[standard][pollutant]
+
+    for metric in ["daily", "annual", "hourly", "8h"]:
+        if metric in pollutant_limits:
+            return {
+                "metric": metric,
+                "value": pollutant_limits[metric],
+            }
+
+    return None
 
 def register_callbacks(app, wales_df, wales_df_long):
     # Precomputed maps to reduce repetition and increase dashboard speed
@@ -164,6 +180,23 @@ def register_callbacks(app, wales_df, wales_df_long):
     def has_full_date_range(start_date, end_date):
         return bool(start_date) and bool(end_date)
 
+    @app.callback(
+    Output("nav-home", "className"),
+    Output("nav-comparison", "className"),
+    Input("url", "pathname"),
+    )
+    def highlight_nav(pathname):
+        pathname = pathname or "/"
+
+        def nav_class(link_path: str) -> str:
+            return "nav-link active" if pathname == link_path else "nav-link"
+
+        return (
+            nav_class("/"),
+            nav_class("/comparison"),
+        )
+
+    # Function to compute intersection window (date-only) for current selection
     def compute_allowed_bounds(sites, pollutant):
         """Compute intersection window (date-only) for current selection."""
         sites = sites or []
@@ -199,6 +232,521 @@ def register_callbacks(app, wales_df, wales_df_long):
         if dq == "Ratified":
             end_dt = min(end_dt, RATIFIED_CUTOFF)
         return start_dt, end_dt
+    
+
+    def filter_df(wales_df_long, sites, pollutant, start_date, end_date):
+        dff = wales_df_long.copy()
+
+        if sites:
+            dff = dff[dff["site"].isin(sites)]
+
+        if pollutant:
+            dff = dff[dff["pollutants"] == pollutant]
+
+        if start_date:
+            dff = dff[dff["date"] >= pd.to_datetime(start_date)]
+
+        if end_date:
+            end_dt = pd.to_datetime(end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+            dff = dff[dff["date"] <= end_dt]
+
+        return dff.sort_values("date")
+
+
+    def get_days(start_date, end_date):
+        if not start_date or not end_date:
+            return None
+        return max((pd.to_datetime(end_date) - pd.to_datetime(start_date)).days + 1, 1)
+
+
+    def get_mode(days):
+        if days <= 1:
+            return "day"
+        if days < 30:
+            return "short"
+        if days < 180:
+            return "medium"
+        return "long"
+
+
+    def make_kpi(title, value, subtitle):
+        return html.Div(
+            [
+                html.Div(title, className="kpi-label"),
+                html.Div(value, className="kpi-value"),
+                html.Div(subtitle, className="kpi-subtitle"),
+            ]
+        )
+
+    def build_overview_chart(
+        dff,
+        pollutant_label,
+        start_date,
+        end_date,
+        threshold_value=None,
+        threshold_metric=None,
+        threshold_standard=None,
+    ):
+        start_str = pd.to_datetime(start_date).strftime("%d %b %Y")
+        end_str = pd.to_datetime(end_date).strftime("%d %b %Y")
+
+        n_sites = dff["site"].nunique()
+
+        if n_sites > 1:
+            fig = px.line(
+                dff,
+                x="date",
+                y="value",
+                color="site",
+                # markers=True,
+            )
+        else:
+            fig = px.line(
+                dff,
+                x="date",
+                y="value",
+                # markers=True,
+            )
+
+            peak_idx = dff["value"].idxmax()
+            peak_row = dff.loc[peak_idx]
+
+            fig.add_trace(
+                go.Scatter(
+                    x=[peak_row["date"]],
+                    y=[peak_row["value"]],
+                    mode="markers+text",
+                    name="Peak",
+                    text=["Peak"],
+                    textposition="top center",
+                )
+            )
+
+        if threshold_value is not None:
+            if threshold_standard and threshold_metric:
+                annotation = f"{threshold_standard} {threshold_metric} threshold"
+            elif threshold_standard:
+                annotation = f"{threshold_standard} threshold"
+            elif threshold_metric:
+                annotation = f"{threshold_metric} threshold"
+            else:
+                annotation = "Threshold"
+
+            fig.add_hline(
+                y=threshold_value,
+                line_dash="dash",
+                annotation_text=annotation,
+            )
+
+        fig.update_layout(
+            title=f"{pollutant_label} Concentration ({start_str} – {end_str})",
+            height=400,
+
+            title_font=dict(
+            family="Inter, sans-serif",
+            size=16,
+            color= "#d1e0c2"
+            ),
+
+            xaxis_title="Date",
+            yaxis_title=f"{pollutant_label} (µg/m³)",
+
+            xaxis_title_font=dict(
+            family="Inter, sans-serif",
+            size=13,
+            color="#acb5c0"
+            ),
+
+            yaxis_title_font=dict(
+                family="Inter, sans-serif",
+                size=13,
+                color="#acb5c0"
+            ),
+
+            template="plotly_dark",
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            legend_title="Site" if n_sites > 1 else None,
+        )
+
+        return fig
+
+
+    def build_trend_chart(dff, days, pollutant_label):
+        if days <= 31:
+            freq = "D"
+            title = f"Daily {pollutant_label} Concentration"
+        elif days < 180:
+            freq = "W"
+            title = f"Weekly {pollutant_label} Concentration"
+        else:
+            freq = "ME"
+            title = f"Monthly {pollutant_label} Concentration"
+
+        agg = (
+            dff.set_index("date")
+            .groupby("site")["value"]
+            .resample(freq)
+            .mean()
+            .reset_index()
+        )
+
+        n_sites = dff["site"].nunique()
+
+        fig = px.line(
+            agg,
+            x="date",
+            y="value",
+            color="site" if n_sites > 1 else None,
+            markers=True,
+            title=title,
+        )
+
+        fig.update_layout(
+            height=400,
+
+            title_font=dict(
+            family="Inter, sans-serif",
+            size=16,
+            color= "#829a67"
+            ),
+
+            xaxis_title="Date",
+            yaxis_title=f"{pollutant_label} (µg/m³)",
+
+            xaxis_title_font=dict(
+            family="Inter, sans-serif",
+            size=13,
+            color="#acb5c0"
+            ),
+
+            yaxis_title_font=dict(
+                family="Inter, sans-serif",
+                size=13,
+                color="#acb5c0"
+            ),
+
+            template="plotly_dark",
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            legend_title="Site" if n_sites > 1 else None,
+        )
+        return fig
+
+
+    def build_distribution_chart(dff, days, pollutant_label):
+        temp = dff.copy()
+
+        if days <= 31:
+            temp["bucket"] = temp["date"].dt.strftime("%Y-%m-%d")
+            title = f"{pollutant_label} Distribution by Day"
+            x_title = "Day"
+        else:
+            temp["bucket"] = temp["date"].dt.strftime("%Y-%m")
+            title = f"{pollutant_label} Distribution by Month"
+            x_title = "Month"
+
+        n_sites = dff["site"].nunique()
+
+        fig = px.box(
+            temp,
+            x="bucket",
+            y="value",
+            color="site" if n_sites > 1 else None,
+            title=title,
+        )
+
+        fig.update_layout(
+            height=400,
+
+            title_font=dict(
+            family="Inter, sans-serif",
+            size=16,
+            color= "#d1e0c2"
+            ),
+
+            xaxis_title=x_title,
+            yaxis_title=f"{pollutant_label} (µg/m³)",
+
+            xaxis_title_font=dict(
+            family="Inter, sans-serif",
+            size=13,
+            color="#acb5c0"
+            ),
+
+            yaxis_title_font=dict(
+                family="Inter, sans-serif",
+                size=13,
+                color="#acb5c0"
+            ),
+
+            template="plotly_dark",
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            legend_title="Site" if n_sites > 1 else None,
+        )
+        return fig
+
+
+    def build_seasonality_chart(dff, days, pollutant_label):
+        required_cols = {"date", "value"}
+        if dff is None or dff.empty or not required_cols.issubset(dff.columns):
+            fig = go.Figure()
+            fig.update_layout(
+                title="No data available for seasonality analysis",
+                height=360,
+                template="plotly_dark",
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+            )
+            return fig
+
+        temp = dff.copy()
+        temp["date"] = pd.to_datetime(temp["date"], errors="coerce")
+        temp = temp.dropna(subset=["date", "value"])
+
+        if temp.empty:
+            fig = go.Figure()
+            fig.update_layout(
+                title="No valid data available for seasonality analysis",
+                height=400,
+                template="plotly_dark",
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+            )
+            return fig
+
+        if "site" not in temp.columns:
+            temp["site"] = "Selected site"
+
+        temp["site"] = temp["site"].fillna("Unknown site").astype(str)
+        n_sites = temp["site"].nunique()
+
+        def apply_layout(fig, title, x_title, y_title, height=360):
+            fig.update_layout(
+                title=title,
+                height=height,
+                title_font=dict(
+                    family="Inter, sans-serif",
+                    size=16,
+                    color= "#d1e0c2",
+                ),
+                xaxis_title=x_title,
+                yaxis_title=y_title,
+                xaxis_title_font=dict(
+                    family="Inter, sans-serif",
+                    size=13,
+                    color="#acb5c0",
+                ),
+                yaxis_title_font=dict(
+                    family="Inter, sans-serif",
+                    size=13,
+                    color="#acb5c0",
+                ),
+                font=dict(
+                    family="Inter, sans-serif",
+                    size=12,
+                    color="#acb5c0",
+                ),
+                template="plotly_dark",
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                legend_title="Site" if n_sites > 1 else None,
+                margin=dict(l=30, r=20, t=50, b=40),
+            )
+            return fig
+
+        if days <= 1:
+            temp["hour"] = temp["date"].dt.hour
+
+            grouped = (
+                temp.groupby(["site", "hour"], as_index=False)["value"]
+                .mean()
+                .rename(columns={"value": "mean_value"})
+            )
+
+            fig = px.line(
+                grouped,
+                x="hour",
+                y="mean_value",
+                color="site" if n_sites > 1 else None,
+                markers=True,
+                title=f"Hourly Profile of {pollutant_label}",
+            )
+            fig.update_xaxes(dtick=1)
+
+            return apply_layout(
+                fig,
+                f"Hourly Profile of {pollutant_label}",
+                "Hour of Day",
+                f"Average {pollutant_label} (µg/m³)",
+                height=360,
+            )
+
+        elif days <= 45:
+            weekday_order = [
+                "Monday", "Tuesday", "Wednesday", "Thursday",
+                "Friday", "Saturday", "Sunday"
+            ]
+
+            temp["weekday"] = temp["date"].dt.day_name()
+
+            grouped = (
+                temp.groupby(["site", "weekday"], as_index=False)["value"]
+                .mean()
+                .rename(columns={"value": "mean_value"})
+            )
+
+            grouped["weekday"] = pd.Categorical(
+                grouped["weekday"],
+                categories=weekday_order,
+                ordered=True,
+            )
+            grouped = grouped.sort_values(["site", "weekday"])
+
+            fig = px.bar(
+                grouped,
+                x="weekday",
+                y="mean_value",
+                color="site" if n_sites > 1 else None,
+                barmode="group" if n_sites > 1 else "relative",
+                title=f"Average {pollutant_label} by Day of Week",
+            )
+
+            return apply_layout(
+                fig,
+                f"Average {pollutant_label} by Day of Week",
+                "Weekday",
+                f"Average {pollutant_label} (µg/m³)",
+                height=380,
+            )
+
+        else:
+            month_order = [
+                "January", "February", "March", "April", "May", "June",
+                "July", "August", "September", "October", "November", "December"
+            ]
+
+            temp["month"] = temp["date"].dt.month_name()
+
+            grouped = (
+                temp.groupby(["site", "month"], as_index=False)["value"]
+                .mean()
+                .rename(columns={"value": "mean_value"})
+            )
+
+            grouped["month"] = pd.Categorical(
+                grouped["month"],
+                categories=month_order,
+                ordered=True,
+            )
+            grouped = grouped.sort_values(["site", "month"])
+
+            fig = px.line(
+                grouped,
+                x="month",
+                y="mean_value",
+                color="site" if n_sites > 1 else None,
+                markers=True,
+                title=f"Seasonal Profile of {pollutant_label}",
+            )
+
+            return apply_layout(
+                fig,
+                f"Seasonal Profile of {pollutant_label}",
+                "Month",
+                f"Average {pollutant_label} (µg/m³)",
+                height=360,
+            )
+
+
+    def format_site_kpi_lines(series, decimals=2, suffix=""):
+        if series.empty:
+            return "No data"
+
+        lines = []
+        for site, value in series.items():
+            if pd.isna(value):
+                display = "--"
+            else:
+                display = f"{value:.{decimals}f}{suffix}"
+            lines.append(html.Div(f"{site}: {display}"))
+        return html.Div(lines)
+
+
+    def get_site_exceedance_summary(dff, pollutant, threshold_standard):
+        results = []
+
+        dff['date'] = pd.to_datetime(dff['date'], errors='coerce')
+
+        for site, site_df in dff.groupby("site"):
+            site_wide = (
+                site_df.pivot_table(
+                    index="date",
+                    columns="pollutants",
+                    values="value",
+                    aggfunc="mean"
+                )
+                .reset_index()
+            )
+
+            if pollutant not in site_wide.columns:
+                results.append(
+                    {
+                        "site": site,
+                        "value": 0,
+                        "label": "No data available",
+                    }
+                )
+                continue
+
+
+            exceedance_info = calculate_exceedance(
+                site_wide,
+                pollutant,
+                threshold_standard,
+            )
+
+            results.append(
+                {
+                    "site": site,
+                    "value": exceedance_info["value"],
+                    "label": exceedance_info["label"],
+                }
+            )
+
+        return sorted(results, key=lambda x: str(x["site"]))
+
+
+    
+    def format_site_value_lines(series, decimals=2, suffix=""):
+        if series.empty:
+            return "--"
+
+        return html.Div(
+            [
+                html.Div(
+                    f"{site}: {('--' if pd.isna(val) else f'{val:.{decimals}f}{suffix}')}",
+                    className="kpi-site-line",
+                )
+                for site, val in series.items()
+            ]
+        )
+
+
+    def format_site_exceedance_lines(site_exceedance):
+        if not site_exceedance:
+            return "--"
+
+        return html.Div(
+            [
+                html.Div(
+                    f"{row['site']}: {row['value']}",
+                    className="kpi-site-line",
+                )
+                for row in site_exceedance
+            ]
+        )
 
     # ─────────────────────────────────────────────────────────────
     # 1) Update site dropdown OPTIONS based on pollutant + date range
@@ -264,8 +812,7 @@ def register_callbacks(app, wales_df, wales_df_long):
             valid = all_pollutants
 
         else:
-            start_dt = pd.to_datetime(
-                start_date).date() if date_active else None
+            start_dt = pd.to_datetime(start_date).date() if date_active else None
             end_dt = pd.to_datetime(end_date).date() if date_active else None
 
             if not sites:
@@ -482,146 +1029,7 @@ def register_callbacks(app, wales_df, wales_df_long):
 
         return effective_start, effective_end
 
-    # ─────────────────────────────────────────────────────────────
-    # 8) Warning banner
-    # ─────────────────────────────────────────────────────────────
-
-    @app.callback(
-        Output("filter_warning", "children"),
-        Output("filter_warning", "style"),
-        Input("site_drop", "value"),
-        Input("pol_drop", "value"),
-        Input("date_range", "start_date"),
-        Input("date_range", "end_date"),
-    )
-    def show_filter_warning(sites, pollutant, start_date, end_date):
-        hidden = {"display": "none"}
-        visible = {
-            "color": "#856404",
-            "backgroundColor": "#fff3cd",
-            "border": "1px solid #ffc107",
-            "borderRadius": "4px",
-            "padding": "10px 16px",
-            "margin": "8px 0",
-            "display": "block",
-        }
-
-        sites = sites or []
-        date_active = has_full_date_range(start_date, end_date)
-
-        if not sites or not pollutant:
-            return "", hidden
-
-        sites_missing_pollutant = [
-            s for s in sites if pollutant not in site_to_pollutants.get(s, set())
-        ]
-        if sites_missing_pollutant:
-            return (
-                f"⚠️ The following sites do not measure {pollutant} and will not "
-                f"appear on the graph: {', '.join(sites_missing_pollutant)}",
-                visible,
-            )
-
-        min_allowed, max_allowed = compute_allowed_bounds(sites, pollutant)
-        if min_allowed is None or max_allowed is None:
-            return (
-                "⚠️ No overlapping time period exists across the selected sites "
-                "(and pollutant). Try fewer sites or remove the pollutant filter.",
-                visible,
-            )
-
-        if date_active:
-            start_d = pd.to_datetime(start_date).date()
-            end_d = pd.to_datetime(end_date).date()
-
-            sites_no_data = [
-                s
-                for s in sites
-                if (s, pollutant) not in site_pol_to_dates
-                or site_pol_to_dates[(s, pollutant)][1] < start_d
-                or site_pol_to_dates[(s, pollutant)][0] > end_d
-            ]
-
-            if sites_no_data:
-                return (
-                    f"⚠️ No {pollutant} data in the selected date range for: "
-                    f"{', '.join(sites_no_data)}. Try expanding the date range.",
-                    visible,
-                )
-
-        return "", hidden
-
-    # ─────────────────────────────────────────────────────────────
-    # 9) Hourly graph
-    # ─────────────────────────────────────────────────────────────
-
-    @app.callback(
-        Output("time-series-chart", "figure"),
-        Input("site_drop", "value"),
-        Input("pol_drop", "value"),
-        Input("date_range", "start_date"),
-        Input("date_range", "end_date"),
-        Input("dq_store", "data"),
-    )
-    def update_graph(selected_sites, pollutant, start_date, end_date, dq):
-        selected_sites = selected_sites or []
-
-        if (
-            not selected_sites
-            or not pollutant
-            or not has_full_date_range(start_date, end_date)
-        ):
-            fig = px.line(title="Select sites, a pollutant, and a date range")
-            fig.update_layout(
-                template="plotly_dark",
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(0,0,0,0)",
-                height=400,
-            )
-            return fig
-
-        start_dt = pd.to_datetime(start_date)
-        end_dt = pd.to_datetime(end_date) + \
-            pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
-        start_dt, end_dt = apply_dq_cap(start_dt, end_dt, dq)
-
-        df = wales_df[
-            (wales_df["site"].isin(selected_sites))
-            & (wales_df["date"] >= start_dt)
-            & (wales_df["date"] <= end_dt)
-        ].copy()
-
-        if df.empty:
-            fig = px.line(title="No data for this selection")
-            fig.update_layout(
-                template="plotly_dark",
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(0,0,0,0)",
-                height=400,
-            )
-            return fig
-
-        df = df.sort_values(["site", "date"])
-
-        fig = px.line(df, x="date", y=pollutant, color="site")
-        fig.update_traces(connectgaps=False)
-
-        fig.update_layout(
-            template="plotly_dark",
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            height=400,
-            xaxis_title="Date/Time",
-            yaxis_title=f"{pollutant} (µg/m³)",
-            legend_title="Site",
-            margin=dict(t=60),
-        )
-        return fig
-
-    # ─────────────────────────────────────────────────────────────
-    # 10) Topbar metadata
-    # ─────────────────────────────────────────────────────────────
-
+    # Topbar metadata
     @app.callback(
         Output("meta-stations", "children"),
         Output("meta-pollutant", "children"),
@@ -639,9 +1047,10 @@ def register_callbacks(app, wales_df, wales_df_long):
         )
         period_text = format_date_range(start_date, end_date)
         return stations_text, pollutant_text, period_text
+    
 
     # ─────────────────────────────────────────────────────────────
-    # 11) Summary statistics table
+    # Summary statistics table
     # ─────────────────────────────────────────────────────────────
 
     @app.callback(
@@ -697,9 +1106,9 @@ def register_callbacks(app, wales_df, wales_df_long):
                 },
                 style_cell={
                     "textAlign": "center",
-                    "padding": "12px 10px",
+                    "padding": "8px 8px",
                     "fontFamily": "Inter, sans-serif",
-                    "fontSize": "14px",
+                    "fontSize": "13px",
                     "color": "var(--text-primary)",
                     "backgroundColor": "var(--bg-secondary)",
                     "border": "none",
@@ -711,7 +1120,8 @@ def register_callbacks(app, wales_df, wales_df_long):
                     "borderBottom": "1px solid rgba(255, 255, 255, 0.08)",
                     "textTransform": "uppercase",
                     "letterSpacing": "0.4px",
-                    "fontSize": "12px",
+                    "fontSize": "11px",
+                    "padding": "8px 8px",
                 },
                 style_data={
                     "backgroundColor": "var(--bg-secondary)",
@@ -736,13 +1146,10 @@ def register_callbacks(app, wales_df, wales_df_long):
                 ],
                 style_as_list_view=True,
             ),
-            className="stats-table",
+            # className="stats-table",
         )
-
-    # ─────────────────────────────────────────────────────────────
-    # 12) Data completeness panel
-    # ─────────────────────────────────────────────────────────────
-
+    
+    # Data Completeness  
     @app.callback(
         Output("completeness-overall", "children"),
         Output("completeness-bars", "children"),
@@ -802,8 +1209,218 @@ def register_callbacks(app, wales_df, wales_df_long):
 
         return overall_text, bars
 
-    # ─────────────────────────────────────────────────────────────
-    # 13) Quick select button active glow
+    #  Trends KPIs, chart, and insights
+
+    @app.callback(
+    Output("trends-kpi-avg", "children"),
+    Output("trends-kpi-max", "children"),
+    Output("trends-kpi-threshold", "children"),
+    Output("trends-kpi-exceed", "children"),
+    Output("trends-kpi-var", "children"),
+    Output("trends-warning", "children"),
+    Output("trends-warning", "style"),
+    Output("trends-chart-container", "children"),
+    Output("trends-insight-box", "children"),
+    Input("trends-tabs", "value"),
+    Input("site_drop", "value"),
+    Input("pol_drop", "value"),
+    Input("date_range", "start_date"),
+    Input("date_range", "end_date"),
+    Input("threshold-store", "data"),
+    Input("dq_store", "data"),
+)
+    def update_trends(tab, selected_sites, selected_pollutant, start_date, end_date, threshold_standard, dq):
+        df = wales_df_long.copy()
+
+        effective_end_date = end_date
+        if dq == "Ratified" and end_date:
+            effective_end_date = str(
+                min(pd.to_datetime(end_date).date(), RATIFIED_CUTOFF.date())
+            )
+
+        days = get_days(start_date, effective_end_date)
+
+        if days is None:
+            empty_fig = go.Figure()
+            empty_fig.update_layout(
+                title="Select a date range to begin",
+                title_font=dict(
+                    family="Inter, sans-serif",
+                    size=16,
+                    color="#d1e0c2"
+                ),
+                template="plotly_dark",
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                height=300,
+            )
+            return (
+                make_kpi("Average", "--", "Awaiting filters"),
+                make_kpi("Peak", "--", "Awaiting filters"),
+                make_kpi("Threshold", "--", "Awaiting filters"),
+                make_kpi("Exceedances", "--", "Awaiting filters"),
+                make_kpi("Variability", "--", "Awaiting filters"),
+                "",
+                {"display": "none"},
+                dcc.Graph(figure=empty_fig, config={"displayModeBar": True, "displaylogo": False}),
+                html.Div(
+                    html.P(
+                        [html.Strong("Insights: "), "Select a start and end date to generate a temporal analysis summary."],
+                        className="insight-inline"
+                    ),
+                    className="insight-box"
+                ),
+            )
+
+        dff = filter_df(df, selected_sites, selected_pollutant, start_date, effective_end_date)
+
+        if dff.empty or not selected_pollutant:
+            empty_fig = go.Figure()
+            empty_fig.update_layout(
+                title="No data available for selected filters",
+                template="plotly_dark",
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                height=300,
+            )
+            return (
+                make_kpi("Average", "--", "No data"),
+                make_kpi("Peak", "--", "No data"),
+                make_kpi("Threshold", "--", "No data"),
+                make_kpi("Exceedances", "--", "No data"),
+                make_kpi("Variability", "--", "No data"),
+                "No matching data was found for the current selection.",
+                {"display": "block"},
+                dcc.Graph(figure=empty_fig, config={"displayModeBar": True, "displaylogo": False}),
+                html.Div(
+                    [
+                        html.H4("No Data Available", className="insight-inline"),
+                        html.P("Try adjusting the site, pollutant, or date range."),
+                    ]
+                ),
+            )
+
+        pollutant_label = POLLUTANT_DISPLAY_NAMES.get(selected_pollutant, selected_pollutant)
+        threshold_info = get_threshold_info(selected_pollutant, threshold_standard or "UK")
+        threshold_value = threshold_info["value"] if threshold_info else None
+        threshold_metric = threshold_info["metric"] if threshold_info else None
+        selected_standard = threshold_standard or "UK"
+
+        site_count = dff["site"].nunique()
+        site_avg = dff.groupby("site")["value"].mean().sort_index()
+        site_max = dff.groupby("site")["value"].max().sort_index()
+        site_std = dff.groupby("site")["value"].std().sort_index()
+
+        site_exceedance = get_site_exceedance_summary(
+            dff,
+            selected_pollutant,
+            selected_standard,
+        )
+
+        avg_val = dff["value"].mean()
+        max_val = dff["value"].max()
+        mode = get_mode(days)
+
+        warning_text = ""
+        warning_style = {"display": "none"}
+
+        if tab == "overview":
+            fig = build_overview_chart(
+                dff,
+                pollutant_label,
+                start_date,
+                effective_end_date,
+                threshold_value,
+                threshold_metric,
+                selected_standard,
+            )
+        elif tab == "trend":
+            fig = build_trend_chart(dff, days, pollutant_label)
+        elif tab == "distribution":
+            fig = build_distribution_chart(dff, days, pollutant_label)
+        elif tab == "seasonality":
+            fig = build_seasonality_chart(dff, days, pollutant_label)
+        else:
+            fig = go.Figure()
+
+        peak_row = dff.loc[dff["value"].idxmax()]
+        peak_time = peak_row["date"].strftime("%Y-%m-%d")
+
+        threshold_subtitle = (
+            f"{selected_standard} {threshold_metric} guideline"
+            if threshold_metric
+            else "No threshold available"
+        )
+        threshold_display = f"{threshold_value}" if threshold_value is not None else "--"
+
+        if site_count == 1:
+            exceedance_info = site_exceedance[0] if site_exceedance else {"value": "--", "label": "No data"}
+
+            avg_kpi = make_kpi("Average", f"{site_avg.iloc[0]:.2f}", f"Mean {pollutant_label}")
+            max_kpi = make_kpi("Peak", f"{site_max.iloc[0]:.2f}", f"Max observed {pollutant_label}")
+            exceed_kpi = make_kpi("Exceedance", f"{exceedance_info['value']}", exceedance_info["label"])
+            var_kpi = make_kpi(
+                "Variability",
+                f"{0 if pd.isna(site_std.iloc[0]) else site_std.iloc[0]:.2f}",
+                "Standard deviation",
+            )
+        else:
+            avg_kpi = make_kpi(
+                "Average",
+                format_site_value_lines(site_avg, decimals=2),
+                f"Mean {pollutant_label} by site",
+            )
+            max_kpi = make_kpi(
+                "Peak",
+                format_site_value_lines(site_max, decimals=2),
+                f"Max {pollutant_label} by site",
+            )
+            exceed_kpi = make_kpi(
+                "Exceedance",
+                format_site_exceedance_lines(site_exceedance),
+                "Exceedance count by site",
+            )
+            var_kpi = make_kpi(
+                "Variability",
+                format_site_value_lines(site_std.fillna(0), decimals=2),
+                "Standard deviation by site",
+            )
+
+        if mode == "day":
+            insight = (
+                f"This selection focuses on a very short window. Average {pollutant_label} is {avg_val:.2f} µg/m³, "
+                f"with a peak of {max_val:.2f} on {peak_time}. At this range, local variation and unusual values matter "
+                f"more than seasonal interpretation."
+            )
+        elif mode == "short":
+            insight = (
+                f"This {days}-day window supports short-term monitoring. Average {pollutant_label} is {avg_val:.2f} µg/m³, "
+                f"with a maximum of {max_val:.2f} on {peak_time}. Daily trend movement and weekday structure are the most useful views here."
+            )
+        else:
+            insight = (
+                f"This {days}-day window supports broader temporal interpretation. Average {pollutant_label} is {avg_val:.2f} µg/m³, "
+                f"with a maximum of {max_val:.2f} on {peak_time}. Seasonal structure and longer trend behaviour can now be interpreted more confidently."
+            )
+
+        return (
+            avg_kpi,
+            max_kpi,
+            make_kpi("Threshold", threshold_display, threshold_subtitle),
+            exceed_kpi,
+            var_kpi,
+            warning_text,
+            warning_style,
+            dcc.Graph(figure=fig, config={"displayModeBar": True, "displaylogo": False}),
+            html.Div(
+                html.P([html.Strong("Insights: "), insight], className="insight-inline"),
+                className="insight-box"
+            ),
+        )
+   
+
+    # ────────────────────────────────────────────────────────────
+    # Quick select button active glow
     # ─────────────────────────────────────────────────────────────
     _BTN_BASE = {
         "background": "var(--bg-tertiary)",
