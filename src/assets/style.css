@@ -612,6 +612,30 @@ body {
   overflow-wrap: anywhere;
 }
 
+.kpi-subtitle-good {
+  color: var(--green-400);
+}
+
+.kpi-subtitle-danger {
+  color: var(--red-400);
+}
+
+.kpi-subtitle-neutral {
+  color: var(--orange-400);
+}
+
+.kpi-site-line.good {
+  color: var(--green-400);
+}
+
+.kpi-site-line.danger {
+  color: var(--red-400);
+}
+
+.kpi-site-line.neutral {
+  color: var(--orange-400);
+}
+
 
 /* ───────────────────────────────────────────────────────
    STATS & COMPLETENESS
