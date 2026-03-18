@@ -180,12 +180,14 @@ def register_callbacks(app, wales_df, wales_df_long):
     def has_full_date_range(start_date, end_date):
         return bool(start_date) and bool(end_date)
 
+
     @app.callback(
     Output("nav-home", "className"),
     Output("nav-comparison", "className"),
     Input("url", "pathname"),
     )
     def highlight_nav(pathname):
+        # Highlights the active page in the sidebar navigation based on the current URL pathname
         pathname = pathname or "/"
 
         def nav_class(link_path: str) -> str:
@@ -235,6 +237,7 @@ def register_callbacks(app, wales_df, wales_df_long):
     
 
     def filter_df(wales_df_long, sites, pollutant, start_date, end_date):
+        # Filter the long-format DataFrame based on selected sites, pollutant, and date range
         dff = wales_df_long.copy()
 
         if sites:
@@ -270,6 +273,7 @@ def register_callbacks(app, wales_df, wales_df_long):
 
 
     def make_kpi(title, value, subtitle):
+        # Helper function to create a KPI card with consistent styling
         return html.Div(
             [
                 html.Div(title, className="kpi-label"),
@@ -277,6 +281,128 @@ def register_callbacks(app, wales_df, wales_df_long):
                 html.Div(subtitle, className="kpi-subtitle"),
             ]
         )
+
+
+    def format_site_value_lines(series, decimals=2, suffix=""):
+        # Helper function to format lines for each site, displaying the value with specified decimal places and suffix, or "--" if data is missing
+        if series.empty:
+            return "--"
+
+        return html.Div(
+            [
+                html.Div(
+                    f"{site}: {('--' if pd.isna(val) else f'{val:.{decimals}f}{suffix}')}",
+                    className="kpi-site-line",
+                )
+                for site, val in series.items()
+            ]
+        )
+
+
+    def format_site_exceedance_lines(site_exceedance):
+        # Helper function to format exceedance lines for each site, displaying how much each site is above or below the threshold, or "--" if data is missing
+        if not site_exceedance:
+            return "--"
+
+        return html.Div(
+            [
+                html.Div(
+                    f"{row['site']}: {row['value']}",
+                    className="kpi-site-line",
+                )
+                for row in site_exceedance
+            ]
+        )
+    
+    def format_with_units(value, decimals=2, units="µg/m³"):
+        # Helper function to format a numeric value with specified decimal places and units
+        if value is None or pd.isna(value):
+            return "--"
+        return f"{value:.{decimals}f} {units}"
+
+
+    # Helper function to generate a subtitle comparing the current value to a threshold, indicating how much it is above or below the threshold
+    def threshold_comparison_subtitle(
+        value,
+        threshold_value,
+        threshold_metric=None,
+        threshold_standard=None,
+        units="µg/m³",
+    ):
+        if value is None or pd.isna(value) or threshold_value is None or pd.isna(threshold_value):
+            return "No threshold available"
+
+        diff = value - threshold_value
+
+        if threshold_standard and threshold_metric:
+            metric_label = f"{threshold_standard} {threshold_metric} threshold"
+        elif threshold_metric:
+            metric_label = f"{threshold_metric} threshold"
+        elif threshold_standard:
+            metric_label = f"{threshold_standard} threshold"
+        else:
+            metric_label = "threshold"
+
+
+        if diff > 0:
+            return html.Span(
+                    f"{abs(diff):.2f} {units} above {metric_label}",
+                    className="kpi-subtitle-danger",
+                )
+        elif diff < 0:
+            return html.Span(
+                    f"{abs(diff):.2f} {units} below {metric_label}",
+                    className="kpi-subtitle-good",
+                )
+        else:
+            return html.Span(
+                    f"Equal to {metric_label}",
+                    className="kpi-subtitle-neutral",
+                )
+
+    # Helper function that generates lines comparing each site's value to a threshold, indicating how much each site is above or below the threshold
+    def format_site_threshold_comparison_lines(
+        series,
+        threshold_value,
+        threshold_metric=None,
+        threshold_standard=None,
+        decimals=2,
+        units="µg/m³",
+        ):
+        if series.empty:
+            return "--"
+
+        if threshold_standard and threshold_metric:
+            metric_label = f"{threshold_standard} {threshold_metric} threshold"
+        elif threshold_metric:
+            metric_label = f"{threshold_metric} threshold"
+        elif threshold_standard:
+            metric_label = f"{threshold_standard} threshold"
+        else:
+            metric_label = "threshold"
+
+        lines = []
+        for site, val in series.items():
+            if threshold_value is None or pd.isna(val):
+                lines.append(
+                    html.Div(f"{site}: --", className="kpi-site-line")
+                )
+                continue
+
+            if val > threshold_value:
+                line_class = "kpi-site-line danger"
+                text = f"{site}: {abs(val - threshold_value):.{decimals}f} {units} above {metric_label}"
+            elif val < threshold_value:
+                line_class = "kpi-site-line good"
+                text = f"{site}: {abs(val - threshold_value):.{decimals}f} {units} below {metric_label}"
+            else:
+                line_class = "kpi-site-line neutral"
+                text = f"{site}: Equal to {metric_label}"
+
+            lines.append(html.Div(text, className=line_class))
+
+        return html.Div(lines)
+    
 
     def build_overview_chart(
         dff,
@@ -287,6 +413,7 @@ def register_callbacks(app, wales_df, wales_df_long):
         threshold_metric=None,
         threshold_standard=None,
     ):
+        # Build the overview line chart for the selected pollutant and date range, with threshold annotation
         start_str = pd.to_datetime(start_date).strftime("%d %b %Y")
         end_str = pd.to_datetime(end_date).strftime("%d %b %Y")
 
@@ -373,6 +500,7 @@ def register_callbacks(app, wales_df, wales_df_long):
 
 
     def build_trend_chart(dff, days, pollutant_label):
+        # Build the trend line chart, adjusting aggregation level (daily/weekly/monthly) based on the length of the date range
         if days <= 31:
             freq = "D"
             title = f"Daily {pollutant_label} Concentration"
@@ -435,6 +563,7 @@ def register_callbacks(app, wales_df, wales_df_long):
 
 
     def build_distribution_chart(dff, days, pollutant_label):
+        # Build the distribution box plot, adjusting x-axis grouping (day/month) based on the length of the date range
         temp = dff.copy()
 
         if days <= 31:
@@ -489,6 +618,7 @@ def register_callbacks(app, wales_df, wales_df_long):
 
 
     def build_seasonality_chart(dff, days, pollutant_label):
+        # Build the seasonality chart, adjusting grouping (hour of day, weekday, month) based on the length of the date range
         required_cols = {"date", "value"}
         if dff is None or dff.empty or not required_cols.issubset(dff.columns):
             fig = go.Figure()
@@ -660,46 +790,37 @@ def register_callbacks(app, wales_df, wales_df_long):
             )
 
 
-    def format_site_kpi_lines(series, decimals=2, suffix=""):
-        if series.empty:
-            return "No data"
-
-        lines = []
-        for site, value in series.items():
-            if pd.isna(value):
-                display = "--"
-            else:
-                display = f"{value:.{decimals}f}{suffix}"
-            lines.append(html.Div(f"{site}: {display}"))
-        return html.Div(lines)
-
-
     def get_site_exceedance_summary(dff, pollutant, threshold_standard):
         results = []
 
-        dff['date'] = pd.to_datetime(dff['date'], errors='coerce')
+        dff = dff.copy()
+        dff["date"] = pd.to_datetime(dff["date"], errors="coerce")
+        dff["value"] = pd.to_numeric(dff["value"], errors="coerce")
 
         for site, site_df in dff.groupby("site"):
+            if site_df.empty:
+                results.append({
+                    "site": site,
+                    "value": 0,
+                    "label": "No data available",
+                })
+                continue
+
             site_wide = (
-                site_df.pivot_table(
-                    index="date",
-                    columns="pollutants",
-                    values="value",
-                    aggfunc="mean"
-                )
+                site_df[["date", "pollutants", "value"]]
+                .dropna(subset=["date", "value"])
+                .pivot(index="date", columns="pollutants", values="value")
                 .reset_index()
+                .sort_values("date")
             )
 
             if pollutant not in site_wide.columns:
-                results.append(
-                    {
-                        "site": site,
-                        "value": 0,
-                        "label": "No data available",
-                    }
-                )
+                results.append({
+                    "site": site,
+                    "value": 0,
+                    "label": "No data available",
+                })
                 continue
-
 
             exceedance_info = calculate_exceedance(
                 site_wide,
@@ -707,46 +828,14 @@ def register_callbacks(app, wales_df, wales_df_long):
                 threshold_standard,
             )
 
-            results.append(
-                {
-                    "site": site,
-                    "value": exceedance_info["value"],
-                    "label": exceedance_info["label"],
-                }
-            )
+            results.append({
+                "site": site,
+                "value": exceedance_info["value"],
+                "label": exceedance_info["label"],
+            })
 
         return sorted(results, key=lambda x: str(x["site"]))
 
-
-    
-    def format_site_value_lines(series, decimals=2, suffix=""):
-        if series.empty:
-            return "--"
-
-        return html.Div(
-            [
-                html.Div(
-                    f"{site}: {('--' if pd.isna(val) else f'{val:.{decimals}f}{suffix}')}",
-                    className="kpi-site-line",
-                )
-                for site, val in series.items()
-            ]
-        )
-
-
-    def format_site_exceedance_lines(site_exceedance):
-        if not site_exceedance:
-            return "--"
-
-        return html.Div(
-            [
-                html.Div(
-                    f"{row['site']}: {row['value']}",
-                    className="kpi-site-line",
-                )
-                for row in site_exceedance
-            ]
-        )
 
     # ─────────────────────────────────────────────────────────────
     # 1) Update site dropdown OPTIONS based on pollutant + date range
@@ -1347,42 +1436,85 @@ def register_callbacks(app, wales_df, wales_df_long):
         peak_time = peak_row["date"].strftime("%Y-%m-%d")
 
         threshold_subtitle = (
-            f"{selected_standard} {threshold_metric} guideline"
+            f"{selected_standard} {threshold_metric} threshold"
             if threshold_metric
             else "No threshold available"
         )
-        threshold_display = f"{threshold_value}" if threshold_value is not None else "--"
+        threshold_display = f"{threshold_value}  µg/m³" if threshold_value is not None else "--"
 
         if site_count == 1:
             exceedance_info = site_exceedance[0] if site_exceedance else {"value": "--", "label": "No data"}
 
-            avg_kpi = make_kpi("Average", f"{site_avg.iloc[0]:.2f}", f"Mean {pollutant_label}")
-            max_kpi = make_kpi("Peak", f"{site_max.iloc[0]:.2f}", f"Max observed {pollutant_label}")
-            exceed_kpi = make_kpi("Exceedance", f"{exceedance_info['value']}", exceedance_info["label"])
+            avg_value = site_avg.iloc[0]
+            max_value = site_max.iloc[0]
+            std_value = 0 if pd.isna(site_std.iloc[0]) else site_std.iloc[0]
+
+            avg_kpi = make_kpi(
+                "Average",
+                format_with_units(avg_value),
+                threshold_comparison_subtitle(
+                    avg_value,
+                    threshold_value,
+                    threshold_metric,
+                    selected_standard,
+                ),
+            )
+
+            max_kpi = make_kpi(
+                "Peak",
+                format_with_units(max_value),
+                threshold_comparison_subtitle(
+                    max_value,
+                    threshold_value,
+                    threshold_metric,
+                    selected_standard,
+                ),
+            )
+
+            exceed_kpi = make_kpi(
+                "Exceedance",
+                f"{exceedance_info['value']}",
+                exceedance_info["label"],
+            )
+
             var_kpi = make_kpi(
                 "Variability",
-                f"{0 if pd.isna(site_std.iloc[0]) else site_std.iloc[0]:.2f}",
+                format_with_units(std_value),
                 "Standard deviation",
             )
+
         else:
             avg_kpi = make_kpi(
                 "Average",
-                format_site_value_lines(site_avg, decimals=2),
-                f"Mean {pollutant_label} by site",
+                format_site_value_lines(site_avg, decimals=2, suffix=" µg/m³"),
+                format_site_threshold_comparison_lines(
+                    site_avg,
+                    threshold_value,
+                    threshold_metric,
+                    selected_standard,
+                ),
             )
+
             max_kpi = make_kpi(
                 "Peak",
-                format_site_value_lines(site_max, decimals=2),
-                f"Max {pollutant_label} by site",
+                format_site_value_lines(site_max, decimals=2, suffix=" µg/m³"),
+                format_site_threshold_comparison_lines(
+                    site_max,
+                    threshold_value,
+                    threshold_metric,
+                    selected_standard,
+                ),
             )
+
             exceed_kpi = make_kpi(
                 "Exceedance",
                 format_site_exceedance_lines(site_exceedance),
-                "Exceedance count by site",
+                site_exceedance[0]["label"] if site_exceedance else "No data",
             )
+
             var_kpi = make_kpi(
                 "Variability",
-                format_site_value_lines(site_std.fillna(0), decimals=2),
+                format_site_value_lines(site_std.fillna(0), decimals=2, suffix=" µg/m³"),
                 "Standard deviation by site",
             )
 
