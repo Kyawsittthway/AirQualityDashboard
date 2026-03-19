@@ -1,6 +1,6 @@
-# AirLens v2 - Apple-Inspired Air Quality Dashboard
+# AirLens v2 -  Air Quality Dashboard
 
-**Wales Air Quality Analysis · Team 16 · Sprint 1**
+**Wales Air Quality Analysis · Team 16**
 
 A beautiful, production-ready dashboard with Apple-inspired design featuring sage green accents, dark mode, and rounded cards.
 
@@ -60,21 +60,21 @@ Open **http://127.0.0.1:8052**
 
 ## 🔧 Integrated Features
 
-### From Mayowa (Data Loading & Filters)
+### (Data Loading & Filters)
 ✅ Site multi-select dropdown
 ✅ Pollutant dropdown
 ✅ Date range picker
 ✅ Dynamic filter updates
 ✅ Reset button
 
-### From Rosie (Exceedance Logic)
+### (Exceedance Logic)
 ✅ **PM2.5**: Annual mean (UK) or daily exceedances (WHO)
 ✅ **PM10**: Days exceeding 50 μg/m³ (UK) or 45 (WHO)
 ✅ **NO2**: Hours exceeding 200 μg/m³ (UK) or daily (WHO)
 ✅ **SO2**: Days exceeding 125 μg/m³ (UK) or 40 (WHO)
 ✅ **O3**: 8-hour rolling mean exceedances
 
-### From Charles (Completeness & UI)
+### (Completeness)
 ✅ Per-site completeness calculation
 ✅ Overall completeness percentage
 ✅ Color-coded status (green ≥85%, amber 75-84%, red <75%)
@@ -82,7 +82,7 @@ Open **http://127.0.0.1:8052**
 ✅ KPI tiles with status indicators
 
 ### New Features
-✅ **WHO/UK Toggle Switch**: Apple-style segmented control
+✅ **WHO/UK Toggle Switch**: segmented control
 ✅ **Sage Green Theme**: Professional environmental aesthetic
 ✅ **Responsive Grid Layouts**: Auto-adapting card grids
 ✅ **Dark Mode Throughout**: Consistent #000 / #1C1C1E backgrounds
@@ -97,7 +97,7 @@ Open **http://127.0.0.1:8052**
 | 7-8 | Peris | Summary stats | ✅ |
 | 9-10 | Rosie | Exceedance logic | ✅ |
 | 11-12 | Charles | Completeness | ✅ |
-| 13 | **Gbenga** | **UI Layout** | **✅** |
+| 13 | Gbenga | UI Layout & CSS | ✅ |
 
 ## 🎨 Color Palette
 
@@ -204,15 +204,15 @@ LIMITS = {
 ## 📚 Key Files Explained
 
 ### `app.py`
-Main application with all callbacks. Combines Mayowa's filters, Rosie's exceedance logic, and Charles' completeness calculations.
+Main application with all callbacks. Combines filters, exceedance logic, and completeness calculations.
 
 ### `assets/style.css`
 900+ lines of Apple-inspired CSS. Dark mode, sage green accents, responsive grids.
 
 ### `utils/calculations.py`
 All calculation logic:
-- `calculate_exceedance_rosie()` - Rosie's sophisticated logic
-- `calculate_completeness()` - Charles' completeness calc
+- `calculate_exceedance_rosie()` - logic
+- `calculate_completeness()` - completeness calc
 - `calculate_summary_stats()` - Mean, median, std, etc.
 
 ### `components/sidebar.py`
@@ -239,7 +239,7 @@ Potential enhancements:
 - Peris: Summary statistics
 - Rosie: Exceedance logic
 - Charles (Thway): Completeness calculations
-- **Gbenga**: UI/UX layout & design
+- Gbenga: UI/UX layout & design
 
 ---
 
