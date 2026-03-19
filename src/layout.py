@@ -89,6 +89,26 @@ def create_layout(wales_df_long):
                                         )
                                     ]
                                 ),
+                                #pollution rose
+                                html.Div(
+                                    className='card',
+                                    children=[
+                                        html.Div(
+                                            className='card-header',
+                                            children = [
+                                                html.Div('Pollution Rose', className='card-title')
+                                            ]
+                                        ),
+                                                html.Div(
+                                                    id='pollution_rose_container',
+                                                    style = {
+                                                        'display':'grid',
+                                                        'gridTemplateColumns':'repeat(auto-fit,minmax(320px,1fr))',
+                                                        'gap':'16px'
+                                                    }
+                                                ) 
+                                            ]
+                                ),
 
                                 # Bottom Row: Stats + Completeness
                                 html.Div(

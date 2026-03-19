@@ -24,6 +24,7 @@ from utils.calculations import (
     calculate_summary_stats,
     get_status_class,
     format_date_range,
+    calculate_pollution_rose,
     LIMITS,
     POLLUTANT_DISPLAY_NAMES,
 )
@@ -483,6 +484,30 @@ def register_callbacks(app, wales_df, wales_df_long):
             margin=dict(t=60),
         )
         return fig
+    #pollution rose callback
+    @app.callback(
+        Output('pollution_rose_container','children'),
+        Input('site_drop','value'),
+        Input('pol_drop','value'),
+        Input('date_range','start_date'),
+        Input('date_range','end_date')
+    )
+    #graph for each site 
+    def update_pollution_rose(selected_sites,pollutant,start_date,end_date):
+        if not pollutant or not start_date or not end_date:
+            return []
+        graphs = []
+        for site in selected_sites:
+            fig = calculate_pollution_rose(wales_df_long,[site],pollutant,start_date, end_date)
+            fig.update_layout(
+                title = (f'{site}-{pollutant}'),
+            )
+            graphs.append(dcc.Graph(
+                figure=fig,
+                config={'displayModeBar':True, 'displaylogo':False}
+            ))
+
+        return graphs
 
 
 @callback(

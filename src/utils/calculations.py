@@ -5,6 +5,7 @@ Combines Rosie's exceedance logic + Charles' completeness calculations
 
 import pandas as pd
 import numpy as np
+import plotly.graph_objects as go
 
 
 LIMITS = {
@@ -32,6 +33,12 @@ POLLUTANT_DISPLAY_NAMES = {
     'SO2': 'SO₂'
 }
 
+aqi_limits = {'O3':{1:33,2:66,3:100,4:120,5:140,6:160,7:187,8:213,9:240},
+              'NO2':{1:67,2:134,3:200,4:267,5:334,6:400,7:467,8:534,9:600},
+              'SO2':{1:88,2:177,3:266,4:354,5:443,6:532,7:710,8:887,9:1064},
+              'PM2.5':{1:11,2:23,3:35,4:41,5:47,6:53,7:58,8:64,9:70},
+              'PM10':{1:16,2:33,3:50,4:58,5:66,6:75,7:83,8:91,9:100}
+              }
 def calculate_exceedance_rosie(df, pollutant, threshold_type='UK'):
     """
     Calculate exceedances using Rosie's sophisticated logic.
@@ -314,3 +321,105 @@ def hex_to_rgba(hex_color, alpha=0.12):
     g = int(hex_color[2:4], 16)
     b = int(hex_color[4:6], 16)
     return f"rgba({r},{g},{b},{alpha})"
+#working out the aqi index for each reading
+def aqi_index(value,pollutant):
+    if pd.isna(value):
+        return np.nan
+    else:
+        for i,limit in aqi_limits[pollutant].items():
+            if value <=limit:
+                return i
+        return 10
+#assigning category to aqi
+def aqi_category(index_value):
+    if pd.isna(index_value):
+        return np.nan
+    elif index_value <= 3:
+        return 'Low'
+    elif index_value <= 6 :
+        return 'Moderate'
+    elif index_value <= 9:
+        return 'High'
+    else:
+        return 'Very High'
+#changing the degrees to direction
+def degrees_to_direction(degree):
+    if pd.isna(degree):
+        return np.nan
+    elif degree >= 337.5 or degree < 22.5:
+        return 'N'
+    elif degree < 67.5:
+        return 'NE'
+    elif degree <112.5:
+        return 'E'
+    elif degree < 157.5:
+        return 'SE'
+    elif degree < 202.5:
+        return 'S'
+    elif degree < 247.5:
+        return 'SW'
+    elif degree <292.5:
+        return 'W'
+    else:
+        return 'NW'
+def calculate_pollution_rose(df, selected_sites,pollutant,start_date,end_date):
+    if isinstance(selected_sites,str):
+        selected_sites = [selected_sites]
+    #filter the dataset based on site, pollutant and date range
+    filtered = df[
+        (df['site'].isin(selected_sites)) &
+        (df['pollutants']==pollutant) &
+        (df['date']>=pd.to_datetime(start_date)) &
+        (df['date']<= pd.to_datetime(end_date))].copy()
+    #return an empty figure if no data after filtering
+    if filtered.empty:
+        return go.Figure()
+    #convert degrees into compass directions
+    filtered['wind_direction'] = filtered['wd'].apply(degrees_to_direction)
+    #change pollutant values into aqi index and categories
+    filtered['aqi_index'] = filtered['value'].apply(lambda x: aqi_index(x,pollutant))
+    filtered['aqi_category'] = filtered['aqi_index'].apply(aqi_category)
+    #remove rows with missing wind or aqi categories
+    filtered = filtered.dropna(subset=['wind_direction','aqi_category'])
+    #working out how many times each aqi category occur in each wind direction 
+    direction_counts = (
+        filtered.groupby(['wind_direction','aqi_category']).size().reset_index(name='direction_count'))
+    total_observations = len(filtered)
+    #counts to percentages
+    direction_counts['percentage'] = 100*direction_counts['direction_count']/total_observations
+    directions = ['N','NE','E','SE','S','SW','W','NW']
+    categories = ['Low','Moderate','High','Very High']
+    colours = {
+        'Low':'green',
+        'Moderate':'yellow',
+        'High':'orange',
+        'Very High':'red'
+    }
+    fig = go.Figure()
+    #one trace per aqi category
+    for category in categories:
+        category_data = direction_counts[direction_counts['aqi_category']==category]
+        #all directions present filling missing values with 0
+        category_data = (
+            category_data.set_index('wind_direction')['percentage'].reindex(directions,fill_value=0).reset_index()
+        )
+        #add polar bar trace
+        fig.add_trace(go.Barpolar(
+            r=category_data['percentage'],
+            theta=category_data['wind_direction'],
+            name=category,
+            marker_color=colours[category]
+        ))
+    fig.update_layout(
+        title=f'Pollution Rose, {pollutant}',
+        font_size=16,
+        legend_font_size=16,
+        barmode = 'stack',
+        polar_radialaxis_ticksuffix='%',
+        polar_angularaxis_rotation=90
+        )
+
+    return fig
+
+
+    

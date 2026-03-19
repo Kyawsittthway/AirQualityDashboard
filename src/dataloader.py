@@ -14,7 +14,7 @@ def load_data():
     # Reshape from wide (one column per pollutant) to long format
     # (one row per site-date-pollutant combination) for easier filtering
     wales_df_long = wales_df.copy().melt(
-        id_vars=["date", "site", "site_id"],
+        id_vars=["date", "site", "site_id","wd"],
         value_vars=pollutant_cols,
         var_name="pollutants",
         value_name="value"
