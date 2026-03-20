@@ -2,7 +2,7 @@ import dash
 from dash import html, dcc
 
 
-dash.register_page(__name__, path="/", name="Air Quality | Overview")
+dash.register_page(__name__, path="/", name="Wales Air Quality | Overview")
 
 
 layout = html.Div(
@@ -18,7 +18,6 @@ layout = html.Div(
                                 # KPIs
                                 html.Div(id="trends-kpi-avg", className="kpi-card"),
                                 html.Div(id="trends-kpi-max", className="kpi-card"),
-                                html.Div(id="trends-kpi-threshold", className="kpi-card"),
                                 html.Div(id="trends-kpi-exceed", className="kpi-card"),
                                 html.Div(id="trends-kpi-var", className="kpi-card"),
                             ],

@@ -1303,7 +1303,6 @@ def register_callbacks(app, wales_df, wales_df_long):
     @app.callback(
     Output("trends-kpi-avg", "children"),
     Output("trends-kpi-max", "children"),
-    Output("trends-kpi-threshold", "children"),
     Output("trends-kpi-exceed", "children"),
     Output("trends-kpi-var", "children"),
     Output("trends-warning", "children"),
@@ -1346,7 +1345,6 @@ def register_callbacks(app, wales_df, wales_df_long):
             return (
                 make_kpi("Average", "--", "Awaiting filters"),
                 make_kpi("Peak", "--", "Awaiting filters"),
-                make_kpi("Threshold", "--", "Awaiting filters"),
                 make_kpi("Exceedances", "--", "Awaiting filters"),
                 make_kpi("Variability", "--", "Awaiting filters"),
                 "",
@@ -1375,7 +1373,6 @@ def register_callbacks(app, wales_df, wales_df_long):
             return (
                 make_kpi("Average", "--", "No data"),
                 make_kpi("Peak", "--", "No data"),
-                make_kpi("Threshold", "--", "No data"),
                 make_kpi("Exceedances", "--", "No data"),
                 make_kpi("Variability", "--", "No data"),
                 "No matching data was found for the current selection.",
@@ -1435,12 +1432,6 @@ def register_callbacks(app, wales_df, wales_df_long):
         peak_row = dff.loc[dff["value"].idxmax()]
         peak_time = peak_row["date"].strftime("%Y-%m-%d")
 
-        threshold_subtitle = (
-            f"{selected_standard} {threshold_metric} threshold"
-            if threshold_metric
-            else "No threshold available"
-        )
-        threshold_display = f"{threshold_value}  µg/m³" if threshold_value is not None else "--"
 
         if site_count == 1:
             exceedance_info = site_exceedance[0] if site_exceedance else {"value": "--", "label": "No data"}
@@ -1538,7 +1529,6 @@ def register_callbacks(app, wales_df, wales_df_long):
         return (
             avg_kpi,
             max_kpi,
-            make_kpi("Threshold", threshold_display, threshold_subtitle),
             exceed_kpi,
             var_kpi,
             warning_text,
