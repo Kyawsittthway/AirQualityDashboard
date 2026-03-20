@@ -131,8 +131,9 @@ def get_threshold_info(pollutant, standard):
         return None
 
     pollutant_limits = LIMITS[standard][pollutant]
+   
 
-    for metric in ["daily", "annual", "hourly", "8h"]:
+    for metric in ["daily", "hourly", "8h", "annual"]:
         if metric in pollutant_limits:
             return {
                 "metric": metric,
