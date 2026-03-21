@@ -65,13 +65,14 @@ def calculate_exceedance(df, pollutant, threshold_type='UK'):
                 'type': 'count'
             }
         else:
-            value = df[pollutant].mean()
+            daily_mean = df.groupby(df['date'].dt.date)[pollutant].mean()
             limit = LIMITS['UK']['PM2.5']['annual']
+            value = (daily_mean > limit).sum()
             return {
-                'value': round(value, 1),
+                'value': int(value),
                 'limit': limit,
-                'label': f'Annual mean (limit: {limit} μg/m³)',
-                'type': 'mean'
+                'label': f'Days exceeding {limit} μg/m³',
+                'type': 'count'
             }
 
     # PM10: Daily exceedances
@@ -147,11 +148,12 @@ def calculate_exceedance(df, pollutant, threshold_type='UK'):
 
 def exceedance_summary(df):
     results=[]
+    #group data by site, year and pollutant ignore missing values
     grouped = df.dropna(subset=['value']).groupby(['site','year','pollutants'])
     for (site,year,pollutant),wales_data in grouped:
         wales_data=wales_data.copy()
         wales_data['date']=pd.to_datetime(wales_data['date'])
-    
+        #workout who value 
         if pollutant in ['PM2.5','PM10','NO2']:
             #for these pollutants use annual mean
             value = wales_data['value'].mean()
@@ -178,18 +180,21 @@ def exceedance_summary(df):
             value = (daily_mean>LIMITS['WHO']['SO2']['daily']).sum()
             who_limit = 0
         who_value = value
-        
+        #decide if who limit is exceeded 
         if pollutant == 'SO2':
+            #for so2 any value above 0 means yes 
             if who_value >0:
                 who_exceeds = 'Above'
             else:
                 who_exceeds = 'Within'
         elif pollutant == 'O3':
+            #compare to the peak limit of 6 months
             if who_value > LIMITS['WHO']['O3']['peak']:
                 who_exceeds = 'Above'
             else:
                 who_exceeds = 'Within'
         else:
+            #for others compare to the annual limit
             if who_value > LIMITS['WHO'][pollutant]['annual']:
                 who_exceeds = 'Above'
             else:
@@ -205,6 +210,7 @@ def exceedance_summary(df):
             value = (daily_mean>50).sum()
             uk_limit= LIMITS['UK']['PM10']['annual_allowed']
         elif pollutant == 'SO2':
+            #count days above daily limit
             daily_mean = wales_data.groupby(wales_data['date'].dt.date)['value'].mean()
             value = (daily_mean>125).sum()
             uk_limit = LIMITS['UK']['SO2']['annual_allowed']
@@ -223,11 +229,12 @@ def exceedance_summary(df):
             uk_limit = LIMITS['UK']['O3']['annual_allowed']
 
         uk_value = value
+        #check if uk limit is exceeded
         if uk_value > uk_limit:
             uk_exceeds = 'Above'
         else:
             uk_exceeds = 'Within'
-
+    #store all results for the site, year and pollutant
         results.append({
             'Site': site,
             'Year':year,

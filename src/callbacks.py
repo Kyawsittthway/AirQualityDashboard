@@ -176,11 +176,15 @@ def register_callbacks(app, wales_df, wales_df_long):
     pol_to_sites = wales_df_long.groupby(
         "pollutants")["site"].apply(set).to_dict()
     valid_rows = wales_df_long.dropna(subset=['value']).copy()
-
+    
+    #get the available years for each site
     site_to_years = (valid_rows.groupby('site')['year'].apply(set).to_dict())
+    #get available years for each pollutant 
     pollutant_to_years = (valid_rows.groupby('pollutants')['year'].apply(set).to_dict())
+    #get available years for each site and pollutant combo
     site_pollutant_to_years= (valid_rows.groupby(['site','pollutants'])['year'].apply(set).to_dict())
 
+    #get all the unique sites and pollutants from the dataset
     all_years = sorted(y for y in valid_rows['year'].dropna().unique() if y < 2026)
     all_sites = sorted(wales_df_long["site"].unique())
     all_pollutants = sorted(wales_df_long["pollutants"].unique())
@@ -198,20 +202,26 @@ def register_callbacks(app, wales_df, wales_df_long):
             State('year_drop','value')
     )
     def update_year(sites,pollutant,current_years):
+        #if nothing is selected then use empty lists
         if sites is None:
             sites = []
         if current_years is None:
             current_years = []
+        #if nothing selected then show all years
         if not sites and not pollutant:
             valid = all_years
+        #if sites but no pollutant are chosen show all years common to those sites
         elif sites and not pollutant:
             sites_pol = [site_to_years.get(s,set())for s in sites]
             valid = sorted(set.intersection(*sites_pol)) if sites_pol else []
+        #if pollutant but no sites selected then show all years common for that pollutant
         elif not sites and pollutant:
             valid = sorted(pollutant_to_years.get(pollutant,set()))
+        #if both site and pollutant chosen then just show the years that match both
         else:
             sites_pol = [site_pollutant_to_years.get((s,pollutant),set()) for s in sites]
             valid = sorted(set.intersection(*sites_pol)) if sites_pol else []
+        #keep the years already chosen in the dropdown 
         if current_years:
             valid = sorted(set(valid)|set(current_years))
         return [{'label':y, 'value':y} for y in valid if y<2026]
@@ -223,6 +233,7 @@ def register_callbacks(app, wales_df, wales_df_long):
     Input('threshold-store','data')
 )
     def exceedance_bar(selected_sites,pollutant, selected_years,threshold_standard):
+        #check if who limits selected 
         who_toggle = threshold_standard == 'WHO'
         #if no selection is made tell the user to select 
         if not selected_sites or not pollutant or not selected_years:
@@ -237,6 +248,7 @@ def register_callbacks(app, wales_df, wales_df_long):
         ].copy()
         if results_data.empty:
             return px.bar(title='No data available')
+        #choose the correct columns based on uk or who limits
         if who_toggle:
             results_data['Value']=results_data['who_value']
             results_data['Limit']=results_data['who_limit']
@@ -247,9 +259,10 @@ def register_callbacks(app, wales_df, wales_df_long):
             results_data['exceeds']=results_data['uk_exceeds']
         fig=go.Figure()
         results_data=results_data.sort_values(['Site','Year']).reset_index(drop=True)
+        #use both site and year on the axis 
         x_axis=[results_data['Site'],results_data['Year_str']]
         colours = ['red' if exceeds_limit == 'Above' else 'green' if exceeds_limit == 'Within' else 'grey' for exceeds_limit in results_data['exceeds']]
-        #label the missing data as N/A to display above bar
+        #show 0 label when value is 0 as its hard to see
         results_data['label']=results_data['Value'].apply(
             lambda x: '0' if x == 0 else ''
         )
@@ -827,6 +840,8 @@ def register_callbacks(app, wales_df, wales_df_long):
                 )
                 .reset_index()
             )
+            print(f"Site: {site}, rows: {len(site_wide)}, cols: {site_wide.columns.tolist()}")
+            print(site_wide.head())
 
             if pollutant not in site_wide.columns:
                 results.append(
@@ -1607,10 +1622,11 @@ def register_callbacks(app, wales_df, wales_df_long):
         return base_cls, _BTN_BASE, base_cls, _BTN_BASE, base_cls, _BTN_BASE
     @app.callback(
         Output('date-controls','style'),
-        Output('year-wrapper','style'),
+        Output('year','style'),
         Input('url','pathname'),
     )
     def toggle_side_bar_page(pathname):
+        #if user is on the exceedance page then hide the date picker and show the year drop down
         if pathname == '/exceedance':
             return {'visibility':'hidden','height':0,'overflow':'hidden'},{'display':'block'}
         return{'display':'block'},{'display':'none'}

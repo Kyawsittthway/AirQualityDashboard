@@ -15,7 +15,7 @@ def create_app() -> Dash:
 
     # Build and assign the dashboard layout using the long-format data for dropdown options
     app.layout = create_layout(wales_df_long)
-
+       
     # Wire up all interactivity — dropdowns, date picker, reset button, and graph
     register_callbacks(app, wales_df, wales_df_long)
 
