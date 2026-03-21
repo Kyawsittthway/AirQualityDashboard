@@ -578,7 +578,8 @@ body {
 
 .home-page .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  /* grid-template-columns: repeat(5, minmax(0, 1fr)); */
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); 
   gap: 10px;
 }
 
@@ -610,6 +611,30 @@ body {
   font-size: 11px;
   line-height: 1.1;
   overflow-wrap: anywhere;
+}
+
+.kpi-subtitle-good {
+  color: var(--green-400);
+}
+
+.kpi-subtitle-danger {
+  color: var(--red-400);
+}
+
+.kpi-subtitle-neutral {
+  color: var(--orange-400);
+}
+
+.kpi-site-line.good {
+  color: var(--green-400);
+}
+
+.kpi-site-line.danger {
+  color: var(--red-400);
+}
+
+.kpi-site-line.neutral {
+  color: var(--orange-400);
 }
 
 
