@@ -1,6 +1,6 @@
 # src/app.py
 from dash import Dash
-
+import dash
 from dataloader import load_data
 from layout import create_layout
 from callbacks import register_callbacks

@@ -55,6 +55,12 @@ def create_sidebar():
                                 id="nav-comparison",
                                 className="nav-link",
                             ),
+                            dcc.Link(
+                                'Exceedance',
+                                href='/exceedance',
+                                id='nav-exceedance',
+                                className='nav-link',
+                            )
                         ],
                     ),
                 ],
@@ -83,10 +89,9 @@ def create_sidebar():
                                 n_clicks=0,
                             ),
                         ],
-                                n_clicks=0,
-                            ),
-                        ],
                     ),
+                 ],
+                ),  
             
             # Theme Toggle
             html.Div(
@@ -171,41 +176,58 @@ def create_sidebar():
                     ),
                 ],
             ),
-
-
-            # Quick Date Range Buttons
             html.Div(
-                className="filter-section",
-                children=[
-                    html.Div("Quick Select", className="filter-label"),
-                    html.Div(
-                        className="quick-date-btns",
-                        children=[
-                            html.Button("Yesterday", id="yday",
-                                        className="quick-date-btn", n_clicks=0),
-                            html.Button("Last 7 days", id="last_week",
-                                        className="quick-date-btn", n_clicks=0),
-                            html.Button("Last 30 days", id="last_month",
-                                        className="quick-date-btn", n_clicks=0)
-                        ]
+                className = 'filter-section',
+                id='year-wrapper',
+                style={'display':'none'},
+                children = [
+                    html.Div('Year',className='filter-label'),
+                    dcc.Dropdown(
+                        id='year_drop',
+                        multi=True,
+                        placeholder='Choose years',
+                        options=[],
+                        className='dropdown-sidebar',
                     )
                 ]
             ),
-            # Date Range
+
+            # Quick Date Range Buttons
             html.Div(
-                className="filter-section",
+                id='date-controls',
                 children=[
-                    html.Div("Date Range", className="filter-label"),
-                    dcc.DatePickerRange(
-                        id="date_range",
-                        display_format="DD MMM YYYY",
-                        start_date_placeholder_text="Start",
-                        end_date_placeholder_text="End",
-                        className="dropdown-sidebar",
+                    html.Div(
+                        className = 'filter-section',
+                        children = [
+                            html.Div("Quick Select", className="filter-label"),
+                            html.Div(
+                                className="quick-date-btns",
+                                children=[
+                                    html.Button("Yesterday", id="yday",
+                                                className="quick-date-btn", n_clicks=0),
+                                    html.Button("Last 7 days", id="last_week",
+                                                className="quick-date-btn", n_clicks=0),
+                                    html.Button("Last 30 days", id="last_month",
+                                                className="quick-date-btn", n_clicks=0)
+                                ]
+                            )
+                        ]
+                    ),
+                    # Date Range
+                    html.Div(
+                        className="filter-section",
+                        children=[
+                            html.Div("Date Range", className="filter-label"),
+                            dcc.DatePickerRange(
+                                id="date_range",
+                                display_format="DD MMM YYYY",
+                                start_date_placeholder_text="Start",
+                                end_date_placeholder_text="End",
+                                className="dropdown-sidebar",
+                            ),
+                        ],
                     ),
                 ],
             ),
         ],
     )
-
-    
