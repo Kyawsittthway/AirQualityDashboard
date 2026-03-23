@@ -179,7 +179,7 @@ def create_sidebar():
             #year selection
             html.Div(
                 className = 'filter-section',
-                id='year',
+                id='year-wrapper',
                 style={'display':'none'},
                 children = [
                     html.Div('Year',className='filter-label'),

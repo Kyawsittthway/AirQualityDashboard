@@ -68,9 +68,7 @@ def get_threshold_info(pollutant, standard):
             }
 
     return None
-
-def register_callbacks(app, wales_df, wales_df_long):
-    @app.callback(
+@callback(
     Output("toggle-uk", "className"),
     Output("toggle-who", "className"),
     Output("threshold-store", "data"),
@@ -78,74 +76,76 @@ def register_callbacks(app, wales_df, wales_df_long):
     Input("toggle-who", "n_clicks"),
     State("threshold-store", "data"),
         )
-    def toggle_threshold(uk_clicks, who_clicks, current):
-        """Handle WHO/UK threshold toggle."""
-        if not uk_clicks and not who_clicks:
-            return "toggle-option active", "toggle-option", "UK"
+def toggle_threshold(uk_clicks, who_clicks, current):
+    """Handle WHO/UK threshold toggle."""
+    if not uk_clicks and not who_clicks:
+        return "toggle-option active", "toggle-option", "UK"
 
-        ctx = callback_context
-        if not ctx.triggered:
-            return "toggle-option active", "toggle-option", "UK"
+    ctx = callback_context
+    if not ctx.triggered:
+        return "toggle-option active", "toggle-option", "UK"
 
-        button_id = ctx.triggered[0]["prop_id"].split(".")[0]
+    button_id = ctx.triggered[0]["prop_id"].split(".")[0]
 
-        if button_id == "toggle-uk":
-            return "toggle-option active", "toggle-option", "UK"
-        else:
-            return "toggle-option", "toggle-option active", "WHO"
-
-
-    @app.callback(
-        Output("toggle-dark", "className"),
-        Output("toggle-light", "className"),
-        Output("theme-store", "data"),
-        Output("app-container", "data-theme"),
-        Input("toggle-dark", "n_clicks"),
-        Input("toggle-light", "n_clicks"),
-        State("theme-store", "data"),
-    )
-    def toggle_theme(dark_clicks, light_clicks, current):
-        """Handle dark/light theme toggle."""
-        if not dark_clicks and not light_clicks:
-            return "toggle-option active", "toggle-option", "dark", "dark"
-
-        ctx = callback_context
-        if not ctx.triggered:
-            return "toggle-option active", "toggle-option", "dark", "dark"
-
-        button_id = ctx.triggered[0]["prop_id"].split(".")[0]
-        button_id = ctx.triggered[0]["prop_id"].split(".")[0]
-
-        if button_id == "toggle-dark":
-            return "toggle-option active", "toggle-option", "dark", "dark"
-        else:
-            return "toggle-option", "toggle-option active", "light", "light"
+    if button_id == "toggle-uk":
+        return "toggle-option active", "toggle-option", "UK"
+    else:
+        return "toggle-option", "toggle-option active", "WHO"
 
 
-    @app.callback(
-        Output("toggle-all", "className"),
-        Output("toggle-ratified", "className"),
-        Output("dq_store", "data"),
-        Input("toggle-all", "n_clicks"),
-        Input("toggle-ratified", "n_clicks"),
-        State("dq_store", "data"),
-    )
-    def toggle_data_quality(all_clicks, ratified_clicks, current):
-        """Handle All/Ratified data quality toggle."""
-        if not all_clicks and not ratified_clicks:
-            return "toggle-option active", "toggle-option", "All"
+@callback(
+    Output("toggle-dark", "className"),
+    Output("toggle-light", "className"),
+    Output("theme-store", "data"),
+    Output("app-container", "data-theme"),
+    Input("toggle-dark", "n_clicks"),
+    Input("toggle-light", "n_clicks"),
+    State("theme-store", "data"),
+)
+def toggle_theme(dark_clicks, light_clicks, current):
+    """Handle dark/light theme toggle."""
+    if not dark_clicks and not light_clicks:
+        return "toggle-option active", "toggle-option", "dark", "dark"
 
-        triggered = callback_context.triggered
-        if not triggered:
-            return "toggle-option active", "toggle-option", "All"
+    ctx = callback_context
+    if not ctx.triggered:
+        return "toggle-option active", "toggle-option", "dark", "dark"
 
-        button_id = triggered[0]["prop_id"].split(".")[0]
+    button_id = ctx.triggered[0]["prop_id"].split(".")[0]
+    button_id = ctx.triggered[0]["prop_id"].split(".")[0]
 
-        if button_id == "toggle-all":
-            return "toggle-option active", "toggle-option", "All"
-        else:
-            return "toggle-option", "toggle-option active", "Ratified"
-    
+    if button_id == "toggle-dark":
+        return "toggle-option active", "toggle-option", "dark", "dark"
+    else:
+        return "toggle-option", "toggle-option active", "light", "light"
+
+
+@callback(
+    Output("toggle-all", "className"),
+    Output("toggle-ratified", "className"),
+    Output("dq_store", "data"),
+    Input("toggle-all", "n_clicks"),
+    Input("toggle-ratified", "n_clicks"),
+    State("dq_store", "data"),
+)
+def toggle_data_quality(all_clicks, ratified_clicks, current):
+    """Handle All/Ratified data quality toggle."""
+    if not all_clicks and not ratified_clicks:
+        return "toggle-option active", "toggle-option", "All"
+
+    triggered = callback_context.triggered
+    if not triggered:
+        return "toggle-option active", "toggle-option", "All"
+
+    button_id = triggered[0]["prop_id"].split(".")[0]
+
+    if button_id == "toggle-all":
+        return "toggle-option active", "toggle-option", "All"
+    else:
+        return "toggle-option", "toggle-option active", "Ratified"
+
+def register_callbacks(app, wales_df, wales_df_long):
+
     # Precomputed maps to reduce repetition and increase dashboard speed
 
     site_to_pollutants = (
@@ -840,9 +840,15 @@ def register_callbacks(app, wales_df, wales_df_long):
                 )
                 .reset_index()
             )
-            print(f"Site: {site}, rows: {len(site_wide)}, cols: {site_wide.columns.tolist()}")
-            print(site_wide.head())
-
+            print(f"Site: {site}, rows: {len(site_wide)}")
+            print(f"Calling calculate_exceedance with pollutant={pollutant}, standard={threshold_standard}")
+        
+            exceedance_info = calculate_exceedance(
+                site_wide,
+                pollutant,
+                threshold_standard,
+            )
+            print(f"Result: {exceedance_info}")
             if pollutant not in site_wide.columns:
                 results.append(
                     {
@@ -1622,7 +1628,7 @@ def register_callbacks(app, wales_df, wales_df_long):
         return base_cls, _BTN_BASE, base_cls, _BTN_BASE, base_cls, _BTN_BASE
     @app.callback(
         Output('date-controls','style'),
-        Output('year','style'),
+        Output('year-wrapper','style'),
         Input('url','pathname'),
     )
     def toggle_side_bar_page(pathname):

@@ -27,6 +27,7 @@ POLLUTANT_DISPLAY_NAMES = {
     'SO2': 'SO₂'
 }
 
+  #year for the exceedance calculations
 
 def calculate_exceedance(df, pollutant, threshold_type='UK'):
     """
