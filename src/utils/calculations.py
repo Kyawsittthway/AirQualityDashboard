@@ -11,10 +11,10 @@ LIMITS = {
         'O3': {'8h': 120, 'annual_allowed': 10}
     },
     'WHO': {
-        'PM2.5': {'daily': 15},
-        'PM10': {'daily': 45},
-        'O3': {'8h': 100},
-        'NO2': {'daily': 25},
+        'PM2.5': {'daily': 15,'annual':5},
+        'PM10': {'daily': 45,'annual':15},
+        'O3': {'8h': 100,'peak':60},
+        'NO2': {'daily': 25,'annual':10},
         'SO2': {'daily': 40}
     }
 }
@@ -27,6 +27,7 @@ POLLUTANT_DISPLAY_NAMES = {
     'SO2': 'SO₂'
 }
 
+  #year for the exceedance calculations
 
 def calculate_exceedance(df, pollutant, threshold_type='UK'):
     """
@@ -65,13 +66,14 @@ def calculate_exceedance(df, pollutant, threshold_type='UK'):
                 'type': 'count'
             }
         else:
-            value = df[pollutant].mean()
+            daily_mean = df.groupby(df['date'].dt.date)[pollutant].mean()
             limit = LIMITS['UK']['PM2.5']['annual']
+            value = (daily_mean > limit).sum()
             return {
-                'value': round(value, 1),
+                'value': int(value),
                 'limit': limit,
-                'label': f'Annual mean (limit: {limit} μg/m³)',
-                'type': 'mean'
+                'label': f'Days exceeding {limit} μg/m³',
+                'type': 'count'
             }
 
     # PM10: Daily exceedances
@@ -144,6 +146,110 @@ def calculate_exceedance(df, pollutant, threshold_type='UK'):
         'label': 'Unknown pollutant',
         'type': 'none'
     }
+
+def exceedance_summary(df):
+    results=[]
+    #group data by site, year and pollutant ignore missing values
+    grouped = df.dropna(subset=['value']).groupby(['site','year','pollutants'])
+    for (site,year,pollutant),wales_data in grouped:
+        wales_data=wales_data.copy()
+        wales_data['date']=pd.to_datetime(wales_data['date'])
+        #workout who value 
+        if pollutant in ['PM2.5','PM10','NO2']:
+            #for these pollutants use annual mean
+            value = wales_data['value'].mean()
+            who_limit = LIMITS['WHO'][pollutant]['annual']
+        elif pollutant == 'O3':
+            #workout the max 8hour rolling daily then workout the max rolling consecutive months
+            wales_data['date']=pd.to_datetime(wales_data['date'])
+            wales_data = wales_data.sort_values('date')
+            wales_data = wales_data.set_index('date')
+            wales_data['8h_mean']= wales_data['value'].rolling('8h',min_periods=6).mean()
+            wales_data = wales_data.reset_index()
+            daily_max = (wales_data.groupby(wales_data['date'].dt.date)['8h_mean'].max().reset_index())
+            daily_max['date']=pd.to_datetime(daily_max['date'])
+            daily_max['month']=daily_max['date'].dt.to_period('M')
+            monthly_mean = (daily_max.groupby('month')['8h_mean'].mean().reset_index())
+            monthly_mean = monthly_mean.sort_values('month')
+            monthly_mean['6m']=(monthly_mean['8h_mean'].rolling(window=6,min_periods=6).mean())
+            value = monthly_mean['6m'].max()
+            who_limit = LIMITS['WHO']['O3']['peak']
+
+        elif pollutant == 'SO2':
+            #use number of days exceeding the who limits 
+            daily_mean = wales_data.groupby(wales_data['date'].dt.date)['value'].mean()
+            value = (daily_mean>LIMITS['WHO']['SO2']['daily']).sum()
+            who_limit = 0
+        who_value = value
+        #decide if who limit is exceeded 
+        if pollutant == 'SO2':
+            #for so2 any value above 0 means yes 
+            if who_value >0:
+                who_exceeds = 'Above'
+            else:
+                who_exceeds = 'Within'
+        elif pollutant == 'O3':
+            #compare to the peak limit of 6 months
+            if who_value > LIMITS['WHO']['O3']['peak']:
+                who_exceeds = 'Above'
+            else:
+                who_exceeds = 'Within'
+        else:
+            #for others compare to the annual limit
+            if who_value > LIMITS['WHO'][pollutant]['annual']:
+                who_exceeds = 'Above'
+            else:
+                who_exceeds = 'Within'
+        
+        if pollutant == 'PM2.5':
+            #use annual mean
+            value = wales_data['value'].mean()
+            uk_limit = LIMITS['UK']['PM2.5']['annual']
+        elif pollutant == 'PM10':
+            #count days above daily limit
+            daily_mean = wales_data.groupby(wales_data['date'].dt.date)['value'].mean()
+            value = (daily_mean>50).sum()
+            uk_limit= LIMITS['UK']['PM10']['annual_allowed']
+        elif pollutant == 'SO2':
+            #count days above daily limit
+            daily_mean = wales_data.groupby(wales_data['date'].dt.date)['value'].mean()
+            value = (daily_mean>125).sum()
+            uk_limit = LIMITS['UK']['SO2']['annual_allowed']
+        elif pollutant == 'NO2':
+            #count hours above hourly limit
+            value = (wales_data['value']>200).sum()
+            uk_limit = LIMITS['UK']['NO2']['annual_allowed']
+        elif pollutant == 'O3': #working out the rolling 8 hour mean then counting exceedances
+            wales_data['date']=pd.to_datetime(wales_data['date'])
+            wales_data = wales_data.sort_values('date')
+            wales_data = wales_data.set_index('date')
+            wales_data['8h_mean'] = wales_data['value'].rolling('8h', min_periods=6).mean()
+            wales_data = wales_data.reset_index()
+            daily_max = wales_data.groupby(wales_data['date'].dt.date)['8h_mean'].max()
+            value = (daily_max > 120).sum()
+            uk_limit = LIMITS['UK']['O3']['annual_allowed']
+
+        uk_value = value
+        #check if uk limit is exceeded
+        if uk_value > uk_limit:
+            uk_exceeds = 'Above'
+        else:
+            uk_exceeds = 'Within'
+    #store all results for the site, year and pollutant
+        results.append({
+            'Site': site,
+            'Year':year,
+            'pollutant': pollutant,
+            'uk_value':uk_value,
+            'uk_limit':uk_limit,
+            'uk_exceeds':uk_exceeds,
+            'who_value':who_value,
+            'who_limit':who_limit,
+            'who_exceeds':who_exceeds})
+    results_data = pd.DataFrame(results)
+    results_data['Year'] = results_data['Year'].astype(int)
+    results_data['Year_str'] = results_data['Year'].astype(str)
+    return results_data
 
 
 def calculate_completeness(df, pollutant, date_col='date'):

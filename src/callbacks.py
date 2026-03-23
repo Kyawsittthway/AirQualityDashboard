@@ -25,8 +25,10 @@ from utils.calculations import (
     calculate_summary_stats,
     get_status_class,
     format_date_range,
+    exceedance_summary,
     LIMITS,
     POLLUTANT_DISPLAY_NAMES,
+    
 )
 from datetime import date, timedelta
 
@@ -49,6 +51,23 @@ _BTN_ACTIVE = {
 }
 
 
+
+
+def get_threshold_info(pollutant, standard):
+    if not pollutant or standard not in LIMITS or pollutant not in LIMITS[standard]:
+        return None
+
+    pollutant_limits = LIMITS[standard][pollutant]
+   
+
+    for metric in ["daily", "hourly", "8h", "annual"]:
+        if metric in pollutant_limits:
+            return {
+                "metric": metric,
+                "value": pollutant_limits[metric],
+            }
+
+    return None
 @callback(
     Output("toggle-uk", "className"),
     Output("toggle-who", "className"),
@@ -56,7 +75,7 @@ _BTN_ACTIVE = {
     Input("toggle-uk", "n_clicks"),
     Input("toggle-who", "n_clicks"),
     State("threshold-store", "data"),
-    )
+        )
 def toggle_threshold(uk_clicks, who_clicks, current):
     """Handle WHO/UK threshold toggle."""
     if not uk_clicks and not who_clicks:
@@ -124,24 +143,9 @@ def toggle_data_quality(all_clicks, ratified_clicks, current):
         return "toggle-option active", "toggle-option", "All"
     else:
         return "toggle-option", "toggle-option active", "Ratified"
-    
-
-def get_threshold_info(pollutant, standard):
-    if not pollutant or standard not in LIMITS or pollutant not in LIMITS[standard]:
-        return None
-
-    pollutant_limits = LIMITS[standard][pollutant]
-
-    for metric in ["daily", "annual", "hourly", "8h"]:
-        if metric in pollutant_limits:
-            return {
-                "metric": metric,
-                "value": pollutant_limits[metric],
-            }
-
-    return None
 
 def register_callbacks(app, wales_df, wales_df_long):
+
     # Precomputed maps to reduce repetition and increase dashboard speed
 
     site_to_pollutants = (
@@ -171,19 +175,165 @@ def register_callbacks(app, wales_df, wales_df_long):
 
     pol_to_sites = wales_df_long.groupby(
         "pollutants")["site"].apply(set).to_dict()
+    valid_rows = wales_df_long.dropna(subset=['value']).copy()
+    
+    #get the available years for each site
+    site_to_years = (valid_rows.groupby('site')['year'].apply(set).to_dict())
+    #get available years for each pollutant 
+    pollutant_to_years = (valid_rows.groupby('pollutants')['year'].apply(set).to_dict())
+    #get available years for each site and pollutant combo
+    site_pollutant_to_years= (valid_rows.groupby(['site','pollutants'])['year'].apply(set).to_dict())
 
+    #get all the unique sites and pollutants from the dataset
+    all_years = sorted(y for y in valid_rows['year'].dropna().unique() if y < 2026)
     all_sites = sorted(wales_df_long["site"].unique())
     all_pollutants = sorted(wales_df_long["pollutants"].unique())
+
     global_min = wales_df_long["date"].min().date()
     global_max = wales_df_long["date"].max().date()
+    exceedance_data = exceedance_summary(valid_rows)
 
     def has_full_date_range(start_date, end_date):
         return bool(start_date) and bool(end_date)
+    @app.callback(
+        Output('year_drop','options'),
+        Input('site_drop','value'),
+        Input('pol_drop','value'),
+            State('year_drop','value')
+    )
+    def update_year(sites,pollutant,current_years):
+        #if nothing is selected then use empty lists
+        if sites is None:
+            sites = []
+        if current_years is None:
+            current_years = []
+        #if nothing selected then show all years
+        if not sites and not pollutant:
+            valid = all_years
+        #if sites but no pollutant are chosen show all years common to those sites
+        elif sites and not pollutant:
+            sites_pol = [site_to_years.get(s,set())for s in sites]
+            valid = sorted(set.intersection(*sites_pol)) if sites_pol else []
+        #if pollutant but no sites selected then show all years common for that pollutant
+        elif not sites and pollutant:
+            valid = sorted(pollutant_to_years.get(pollutant,set()))
+        #if both site and pollutant chosen then just show the years that match both
+        else:
+            sites_pol = [site_pollutant_to_years.get((s,pollutant),set()) for s in sites]
+            valid = sorted(set.intersection(*sites_pol)) if sites_pol else []
+        #keep the years already chosen in the dropdown 
+        if current_years:
+            valid = sorted(set(valid)|set(current_years))
+        return [{'label':y, 'value':y} for y in valid if y<2026]
+    @app.callback(
+    Output('exceedance_chart','figure'),
+    Input('site_drop','value'),
+    Input('pol_drop','value'),
+    Input('year_drop','value'),
+    Input('threshold-store','data')
+)
+    def exceedance_bar(selected_sites,pollutant, selected_years,threshold_standard):
+        #check if who limits selected 
+        who_toggle = threshold_standard == 'WHO'
+        #if no selection is made tell the user to select 
+        if not selected_sites or not pollutant or not selected_years:
+            return px.bar(title='Select site, pollutant and year')
+        #make sure sites are in a list
+        if isinstance(selected_sites,str):
+            selected_sites = [selected_sites]
+        results_data = exceedance_data[
+            (exceedance_data['Site'].isin(selected_sites))&
+            (exceedance_data['pollutant']==pollutant)&
+            (exceedance_data['Year'].isin(selected_years))
+        ].copy()
+        if results_data.empty:
+            return px.bar(title='No data available')
+        #choose the correct columns based on uk or who limits
+        if who_toggle:
+            results_data['Value']=results_data['who_value']
+            results_data['Limit']=results_data['who_limit']
+            results_data['exceeds']=results_data['who_exceeds']
+        else:
+            results_data['Value']=results_data['uk_value']
+            results_data['Limit']=results_data['uk_limit']
+            results_data['exceeds']=results_data['uk_exceeds']
+        fig=go.Figure()
+        results_data=results_data.sort_values(['Site','Year']).reset_index(drop=True)
+        #use both site and year on the axis 
+        x_axis=[results_data['Site'],results_data['Year_str']]
+        colours = ['red' if exceeds_limit == 'Above' else 'green' if exceeds_limit == 'Within' else 'grey' for exceeds_limit in results_data['exceeds']]
+        #show 0 label when value is 0 as its hard to see
+        results_data['label']=results_data['Value'].apply(
+            lambda x: '0' if x == 0 else ''
+        )
+        results_data['hover_label']=results_data['Value'].astype(str)
+        trace=go.Bar(
+        x=x_axis,
+        y=results_data['Value'],
+        marker_color = colours,
+        text=results_data['label'],
+        textposition = 'outside',
+        hovertext=results_data['hover_label'],
+        hovertemplate='Site: %{x[0]}<br>Year: %{x[1]}<br>Value:%{hovertext}<extra></extra>')
+        trace.showlegend = False #dont print the legend out for each individual trace
+        fig.add_trace(trace)
+        #add legends to state what the colours mean
+        #fig.update_layout(hovermode='closest')
+        fig.add_trace(go.Bar(
+            x=[None], y=[None],
+            marker_color='red',
+            name='Above Limit'
+        ))
+        fig.add_trace(go.Bar(
+            x=[None], y=[None],
+            marker_color='green',
+            name='Within Limit'
+        ))
+        fig.add_trace(go.Scatter(
+            x=[None],y=[None],
+            mode='lines',
+            line=dict(color='red', dash='dash'),
+            name='Limit'
+        ))
+        #put the y axis labels for each pollutant which vary depending on which one is selected
+        pollutant_labels_uk = {
+        'PM2.5': 'PM2.5 annual mean (µg/m³)',
+        'PM10': f'PM10 days exceeding {LIMITS['UK']['PM10']['daily']}(µg/m³)',
+        'NO2': f'NO2 hours exceeding {LIMITS['UK']['NO2']['hourly']}(µg/m³)',
+        'SO2': f'SO2 days exceeding {LIMITS['UK']['SO2']['daily']}(µg/m³)',
+        'O3': f'O3 days exceeding {LIMITS['UK']['O3']['8h']}(µg/m³)'
+        }
+        pollutant_labels_who = {
+            'PM2.5': 'PM2.5 annual mean (µg/m³)',
+            'PM10': 'PM10 annual mean (µg/m³)',
+            'NO2':'NO2 annual mean(µg/m³)',
+            'SO2':f'SO2 days exceeding {LIMITS['WHO']['SO2']['daily']}(µg/m³)',
+            'O3':'O3 seasonal peak mean(6 months) (µg/m³)'
+        }
+        #choose correct y axis label depending on toggle 
+        if who_toggle:
+            y_label = pollutant_labels_who.get(pollutant,'Value')
+        else:
+            y_label = pollutant_labels_uk.get(pollutant, 'Value')
+
+        fig.update_layout(
+        title=f'{pollutant} Exceedance for Selected Sites',
+        barmode='group', #want a bar for each year
+        yaxis_title=y_label)
+        unique_limits =results_data['Limit'].dropna().unique()
+        if len(unique_limits)==1 and unique_limits[0] !=0:
+            fig.add_hline(
+                y=unique_limits[0],
+                line_dash='dash',
+                line_color='red'
+            )
+        return fig
 
 
     @app.callback(
     Output("nav-home", "className"),
     Output("nav-comparison", "className"),
+    Output('nav-exceedance','className'),
     Input("url", "pathname"),
     )
     def highlight_nav(pathname):
@@ -196,6 +346,7 @@ def register_callbacks(app, wales_df, wales_df_long):
         return (
             nav_class("/"),
             nav_class("/comparison"),
+            nav_class("/exceedance"),
         )
 
     # Function to compute intersection window (date-only) for current selection
@@ -813,7 +964,15 @@ def register_callbacks(app, wales_df, wales_df_long):
                 .reset_index()
                 .sort_values("date")
             )
-
+            print(f"Site: {site}, rows: {len(site_wide)}")
+            print(f"Calling calculate_exceedance with pollutant={pollutant}, standard={threshold_standard}")
+        
+            exceedance_info = calculate_exceedance(
+                site_wide,
+                pollutant,
+                threshold_standard,
+            )
+            print(f"Result: {exceedance_info}")
             if pollutant not in site_wide.columns:
                 results.append({
                     "site": site,
@@ -1589,3 +1748,13 @@ def register_callbacks(app, wales_df, wales_df_long):
             return base_cls, _BTN_BASE, base_cls, _BTN_BASE, active_cls, _BTN_ACTIVE
 
         return base_cls, _BTN_BASE, base_cls, _BTN_BASE, base_cls, _BTN_BASE
+    @app.callback(
+        Output('date-controls','style'),
+        Output('year-wrapper','style'),
+        Input('url','pathname'),
+    )
+    def toggle_side_bar_page(pathname):
+        #if user is on the exceedance page then hide the date picker and show the year drop down
+        if pathname == '/exceedance':
+            return {'visibility':'hidden','height':0,'overflow':'hidden'},{'display':'block'}
+        return{'display':'block'},{'display':'none'}

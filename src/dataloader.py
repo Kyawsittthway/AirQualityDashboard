@@ -23,5 +23,6 @@ def load_data():
 
     # Drop rows where the pollutant has no recorded measurement
     wales_df_long = wales_df_long.dropna(subset=["value"])
-
+    #year for the exceedance calculations
+    wales_df_long['year'] = wales_df_long['date'].dt.year
     return wales_df, wales_df_long
