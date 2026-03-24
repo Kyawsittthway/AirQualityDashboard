@@ -1,22 +1,47 @@
 import dash
-from dash import html
+from dash import html,dcc
 
 
-dash.register_page(__name__, path="/comparison", name="Comparison")
+dash.register_page("pages.comparison", path="/comparison", name="Comparison")
 
 layout = html.Div(
-    id="app-container",
-    **{"data-theme": "dark"},
+    className = 'content',
     children=[
         html.Div(
-            className="content",
+            className="home-page",
             children=[
+                 html.Div(
+                    className = 'card',
+                    children = [
+                        html.Div('Scatter Plot',className = 'card-title')
+                    ]
+                ),
                 html.Div(
-                    className="comparison-page",
+                    className = 'card',
+                    children = [
+                        html.Div('Heat Map',className = 'card-title')
+                    ]
+                ),
+                html.Div(
+                    className="card",
                     children=[
-                        html.Div('Comparison page coming soon!', className="coming-soon")
+                        html.Div('Pollution Rose', className="card-title")
                     ],
-                )
+                ),
+                html.Div(
+                    className = 'card-body',
+                    children = [
+                        html.Div(
+                            id = 'pollution_rose_container',
+                            style = {
+                                'display':'grid',
+                                'gridTemplateColumns':'repeat(auto-fit,minmax(320px,1fr))',
+                                'gap':'16px'
+                            }
+                        )
+                    ]
+                ),
+            
             ],
         )
     ],

@@ -26,9 +26,12 @@ POLLUTANT_DISPLAY_NAMES = {
     'O3': 'O₃',
     'SO2': 'SO₂'
 }
-
-  #year for the exceedance calculations
-
+aqi_limits = {'O3':{1:33,2:66,3:100,4:120,5:140,6:160,7:187,8:213,9:240},
+              'NO2':{1:67,2:134,3:200,4:267,5:334,6:400,7:467,8:534,9:600},
+              'SO2':{1:88,2:177,3:266,4:354,5:443,6:532,7:710,8:887,9:1064},
+              'PM2.5':{1:11,2:23,3:35,4:41,5:47,6:53,7:58,8:64,9:70},
+              'PM10':{1:16,2:33,3:50,4:58,5:66,6:75,7:83,8:91,9:100}
+              }
 def calculate_exceedance(df, pollutant, threshold_type='UK'):
     """
     Calculate pollutant exceedances.
@@ -415,3 +418,46 @@ def hex_to_rgba(hex_color, alpha=0.12):
     g = int(hex_color[2:4], 16)
     b = int(hex_color[4:6], 16)
     return f"rgba({r},{g},{b},{alpha})"
+
+
+#pollution rose
+def aqi_index(value,pollutant):
+    if pd.isna(value):
+        return np.nan
+    else:
+        for i,limit in aqi_limits[pollutant].items():
+            if value <=limit:
+                return i
+        return 10
+#assigning category to aqi
+def aqi_category(index_value):
+    if pd.isna(index_value):
+        return np.nan
+    elif index_value <= 3:
+        return 'Low'
+    elif index_value <= 6 :
+        return 'Moderate'
+    elif index_value <= 9:
+        return 'High'
+    else:
+        return 'Very High'
+#changing the degrees to direction
+def degrees_to_direction(degree):
+    if pd.isna(degree):
+        return np.nan
+    elif degree >= 337.5 or degree < 22.5:
+        return 'N'
+    elif degree < 67.5:
+        return 'NE'
+    elif degree <112.5:
+        return 'E'
+    elif degree < 157.5:
+        return 'SE'
+    elif degree < 202.5:
+        return 'S'
+    elif degree < 247.5:
+        return 'SW'
+    elif degree <292.5:
+        return 'W'
+    else:
+        return 'NW'

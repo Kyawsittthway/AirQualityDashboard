@@ -26,6 +26,9 @@ from utils.calculations import (
     get_status_class,
     format_date_range,
     exceedance_summary,
+    degrees_to_direction,
+    aqi_index,
+    aqi_category,
     LIMITS,
     POLLUTANT_DISPLAY_NAMES,
     
@@ -1698,6 +1701,89 @@ def register_callbacks(app, wales_df, wales_df_long):
                 className="insight-box"
             ),
         )
+    def calculate_pollution_rose(df, selected_sites,pollutant,start_date,end_date):
+        if isinstance(selected_sites,str):
+            selected_sites = [selected_sites]
+        #filter the dataset based on site, pollutant and date range
+        filtered = df[
+            (df['site'].isin(selected_sites)) &
+            (df['pollutants']==pollutant) &
+            (df['date']>=pd.to_datetime(start_date)) &
+            (df['date']<= pd.to_datetime(end_date))].copy()
+        #return an empty figure if no data after filtering
+        if filtered.empty:
+            return go.Figure()
+        #convert degrees into compass directions
+        filtered['wind_direction'] = filtered['wd'].apply(degrees_to_direction)
+        #change pollutant values into aqi index and categories
+        filtered['aqi_index'] = filtered['value'].apply(lambda x: aqi_index(x,pollutant))
+        filtered['aqi_category'] = filtered['aqi_index'].apply(aqi_category)
+        #remove rows with missing wind or aqi categories
+        filtered = filtered.dropna(subset=['wind_direction','aqi_category'])
+        if filtered.empty:
+            return go.Figure()
+        #working out how many times each aqi category occur in each wind direction 
+        direction_counts = (
+            filtered.groupby(['wind_direction','aqi_category']).size().reset_index(name='direction_count'))
+        total_observations = len(filtered)
+        #counts to percentages
+        direction_counts['percentage'] = 100*direction_counts['direction_count']/total_observations
+        directions = ['N','NE','E','SE','S','SW','W','NW']
+        categories = ['Low','Moderate','High','Very High']
+        colours = {
+            'Low':'green',
+            'Moderate':'yellow',
+            'High':'orange',
+            'Very High':'red'
+        }
+        fig = go.Figure()
+        #one trace per aqi category
+        for category in categories:
+            category_data = direction_counts[direction_counts['aqi_category']==category]
+            #all directions present filling missing values with 0
+            category_data = (
+                category_data.set_index('wind_direction')['percentage'].reindex(directions,fill_value=0).reset_index()
+            )
+            #add polar bar trace
+            fig.add_trace(go.Barpolar(
+                r=category_data['percentage'],
+                theta=category_data['wind_direction'],
+                name=category,
+                marker_color=colours[category]
+            ))
+        fig.update_layout(
+            title=f'Pollution Rose, {pollutant}',
+            font_size=16,
+            legend_font_size=16,
+            barmode = 'stack',
+            polar_radialaxis_showticklabels=False,
+            polar_angularaxis_rotation=90
+            )
+
+        return fig
+    @app.callback(
+        Output('pollution_rose_container','children'),
+        Input('site_drop','value'),
+        Input('pol_drop','value'),
+        Input('date_range','start_date'),
+        Input('date_range','end_date')
+    )
+    #graph for each site 
+    def update_pollution_rose(selected_sites,pollutant,start_date,end_date):
+        if not selected_sites or not pollutant or not start_date or not end_date:
+            return []
+        graphs = []
+        for site in selected_sites:
+            fig = calculate_pollution_rose(wales_df_long,[site],pollutant,start_date, end_date)
+            fig.update_layout(
+                title = (f'{site}-{pollutant}'),
+            )
+            graphs.append(dcc.Graph(
+                figure=fig,
+                config={'displayModeBar':True, 'displaylogo':False}
+            ))
+
+        return graphs
    
 
     # ────────────────────────────────────────────────────────────
