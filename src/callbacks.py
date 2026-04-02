@@ -14,7 +14,9 @@ from dash import (
     clientside_callback,
     dash_table,
 )
+from flask import app
 import pandas as pd
+import statsmodels.api as sm
 import plotly.express as px
 import plotly.graph_objects as go
 from components.sidebar import create_sidebar
@@ -36,24 +38,6 @@ from utils.calculations import (
 from datetime import date, timedelta
 
 RATIFIED_CUTOFF = pd.Timestamp("2025-09-30 00:00:00")
-
-# Reusable style dicts for quick-select button states
-_BTN_BASE = {
-    "background": "var(--bg-tertiary)",
-    "borderColor": "var(--border-primary)",
-    "color": "var(--text-secondary)",
-    "boxShadow": "none",
-    "transform": "scale(1)",
-}
-_BTN_ACTIVE = {
-    "background": "rgba(143, 181, 105, 0.15)",
-    "borderColor": "var(--sage-500)",
-    "color": "var(--sage-300)",
-    "boxShadow": "0 0 0 3px rgba(143, 181, 105, 0.15), 0 0 16px rgba(143, 181, 105, 0.35)",
-    "transform": "scale(1.02)",
-}
-
-
 
 
 def get_threshold_info(pollutant, standard):
@@ -114,7 +98,6 @@ def toggle_theme(dark_clicks, light_clicks, current):
     if not ctx.triggered:
         return "toggle-option active", "toggle-option", "dark", "dark"
 
-    button_id = ctx.triggered[0]["prop_id"].split(".")[0]
     button_id = ctx.triggered[0]["prop_id"].split(".")[0]
 
     if button_id == "toggle-dark":
@@ -198,6 +181,52 @@ def register_callbacks(app, wales_df, wales_df_long):
 
     def has_full_date_range(start_date, end_date):
         return bool(start_date) and bool(end_date)
+    
+    def empty_dark_figure(title=None, subtitle=None, height=360):
+        fig = go.Figure()
+        fig.update_layout(
+            title=title,
+            template="plotly_dark",
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            height=height,
+            xaxis=dict(visible=False),
+            yaxis=dict(visible=False),
+            annotations=[
+                dict(
+                    text=title,
+                    x=0.5,
+                    y=0.5,
+                    xref="paper",
+                    yref="paper",
+                    showarrow=False,
+                    font=dict(
+                        family="Inter, sans-serif",
+                        size=16,
+                        color="#acb5c0",
+                    ),
+                )
+            ],
+        )
+        return fig
+
+    def warning_visible(message):
+        return message, {"display": "block"}
+
+    def warning_hidden():
+        return "", {"display": "none"}
+    
+    def filters_missing(sites, pollutant, start_date, end_date):
+        return not sites or not pollutant or not start_date or not end_date
+    
+    def ensure_list(value):
+        if not value:
+            return []
+        if isinstance(value, str):
+            return [value]
+        return value
+
+
     @app.callback(
         Output('year_drop','options'),
         Input('site_drop','value'),
@@ -228,6 +257,8 @@ def register_callbacks(app, wales_df, wales_df_long):
         if current_years:
             valid = sorted(set(valid)|set(current_years))
         return [{'label':y, 'value':y} for y in valid if y<2026]
+    
+
     @app.callback(
     Output('exceedance_chart','figure'),
     Input('site_drop','value'),
@@ -300,18 +331,18 @@ def register_callbacks(app, wales_df, wales_df_long):
         ))
         #put the y axis labels for each pollutant which vary depending on which one is selected
         pollutant_labels_uk = {
-        'PM2.5': 'PM2.5 annual mean (µg/m³)',
-        'PM10': f'PM10 days exceeding {LIMITS['UK']['PM10']['daily']}(µg/m³)',
-        'NO2': f'NO2 hours exceeding {LIMITS['UK']['NO2']['hourly']}(µg/m³)',
-        'SO2': f'SO2 days exceeding {LIMITS['UK']['SO2']['daily']}(µg/m³)',
-        'O3': f'O3 days exceeding {LIMITS['UK']['O3']['8h']}(µg/m³)'
+        "PM2.5": 'PM2.5 annual mean (µg/m³)',
+        "PM10": f'PM10 days exceeding {LIMITS["UK"]["PM10"]["daily"]}(µg/m³)',
+        "NO2": f'NO2 hours exceeding {LIMITS["UK"]["NO2"]["hourly"]}(µg/m³)',
+        "SO2": f'SO2 days exceeding {LIMITS["UK"]["SO2"]["daily"]}(µg/m³)',
+        "O3": f'O3 days exceeding {LIMITS["UK"]["O3"]["8h"]}(µg/m³)'
         }
         pollutant_labels_who = {
-            'PM2.5': 'PM2.5 annual mean (µg/m³)',
-            'PM10': 'PM10 annual mean (µg/m³)',
-            'NO2':'NO2 annual mean(µg/m³)',
-            'SO2':f'SO2 days exceeding {LIMITS['WHO']['SO2']['daily']}(µg/m³)',
-            'O3':'O3 seasonal peak mean(6 months) (µg/m³)'
+            "PM2.5": 'PM2.5 annual mean (µg/m³)',
+            "PM10": 'PM10 annual mean (µg/m³)',
+            "NO2": 'NO2 annual mean(µg/m³)',
+            "SO2": f'SO2 days exceeding {LIMITS["WHO"]["SO2"]["daily"]}(µg/m³)',
+            "O3": 'O3 seasonal peak mean(6 months) (µg/m³)'
         }
         #choose correct y axis label depending on toggle 
         if who_toggle:
@@ -334,11 +365,11 @@ def register_callbacks(app, wales_df, wales_df_long):
 
 
     @app.callback(
-    Output("nav-home", "className"),
-    Output("nav-comparison", "className"),
-    Output('nav-exceedance','className'),
-    Input("url", "pathname"),
-    )
+        Output("nav-home", "className"),
+        Output("nav-comparison", "className"),
+        Output('nav-exceedance','className'),
+        Input("url", "pathname"),
+        )
     def highlight_nav(pathname):
         # Highlights the active page in the sidebar navigation based on the current URL pathname
         pathname = pathname or "/"
@@ -621,7 +652,7 @@ def register_callbacks(app, wales_df, wales_df_long):
 
         fig.update_layout(
             title=f"{pollutant_label} Concentration ({start_str} – {end_str})",
-            height=400,
+            height=360,
 
             title_font=dict(
             family="Inter, sans-serif",
@@ -685,7 +716,7 @@ def register_callbacks(app, wales_df, wales_df_long):
         )
 
         fig.update_layout(
-            height=400,
+            height=360,
 
             title_font=dict(
             family="Inter, sans-serif",
@@ -740,7 +771,7 @@ def register_callbacks(app, wales_df, wales_df_long):
         )
 
         fig.update_layout(
-            height=400,
+            height=360,
 
             title_font=dict(
             family="Inter, sans-serif",
@@ -793,7 +824,7 @@ def register_callbacks(app, wales_df, wales_df_long):
             fig = go.Figure()
             fig.update_layout(
                 title="No valid data available for seasonality analysis",
-                height=400,
+                height=360,
                 template="plotly_dark",
                 paper_bgcolor="rgba(0,0,0,0)",
                 plot_bgcolor="rgba(0,0,0,0)",
@@ -902,7 +933,7 @@ def register_callbacks(app, wales_df, wales_df_long):
                 f"Average {pollutant_label} by Day of Week",
                 "Weekday",
                 f"Average {pollutant_label} (µg/m³)",
-                height=380,
+                height=360,
             )
 
         else:
@@ -967,15 +998,7 @@ def register_callbacks(app, wales_df, wales_df_long):
                 .reset_index()
                 .sort_values("date")
             )
-            print(f"Site: {site}, rows: {len(site_wide)}")
-            print(f"Calling calculate_exceedance with pollutant={pollutant}, standard={threshold_standard}")
         
-            exceedance_info = calculate_exceedance(
-                site_wide,
-                pollutant,
-                threshold_standard,
-            )
-            print(f"Result: {exceedance_info}")
             if pollutant not in site_wide.columns:
                 results.append({
                     "site": site,
@@ -1315,8 +1338,8 @@ def register_callbacks(app, wales_df, wales_df_long):
     def update_summary_stats(sites, pollutant, start_date, end_date, dq):
         if not sites or not pollutant or not start_date or not end_date:
             return html.Div(
-                "Please select site(s), a pollutant, and a date range to generate statistics.",
-                className="text-muted italic",
+                "Select site(s), a pollutant, and a date range to generate statistics.",
+                className="empty-panel-text",
             )
 
         start_dt = pd.to_datetime(start_date)
@@ -1480,6 +1503,11 @@ def register_callbacks(app, wales_df, wales_df_long):
     Input("dq_store", "data"),
 )
     def update_trends(tab, selected_sites, selected_pollutant, start_date, end_date, threshold_standard, dq):
+        '''
+        Updates the trends KPIs, chart, and insights based on the selected tab and filters. 
+        Handles data filtering, KPI calculations, chart generation, and insight messaging.
+        '''
+
         df = wales_df_long.copy()
 
         effective_end_date = end_date
@@ -1491,19 +1519,6 @@ def register_callbacks(app, wales_df, wales_df_long):
         days = get_days(start_date, effective_end_date)
 
         if days is None:
-            empty_fig = go.Figure()
-            empty_fig.update_layout(
-                title="Select a date range to begin",
-                title_font=dict(
-                    family="Inter, sans-serif",
-                    size=16,
-                    color="#d1e0c2"
-                ),
-                template="plotly_dark",
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(0,0,0,0)",
-                height=300,
-            )
             return (
                 make_kpi("Average", "--", "Awaiting filters"),
                 make_kpi("Peak", "--", "Awaiting filters"),
@@ -1511,40 +1526,64 @@ def register_callbacks(app, wales_df, wales_df_long):
                 make_kpi("Variability", "--", "Awaiting filters"),
                 "",
                 {"display": "none"},
-                dcc.Graph(figure=empty_fig, config={"displayModeBar": True, "displaylogo": False}),
                 html.Div(
-                    html.P(
-                        [html.Strong("Insights: "), "Select a start and end date to generate a temporal analysis summary."],
-                        className="insight-inline"
+                className="empty-panel",
+                children=[
+                    html.Div(
+                        "Select site(s), pollutant, and a date range to generate temporal analysis.",
+                        className="empty-panel-text",
+                            ),
+                        ],
                     ),
-                    className="insight-box"
-                ),
-            )
+                    html.Div(
+                        html.P(
+                            [
+                                html.Strong("Insights: "),
+                                html.Span(
+                                    "Select a site, pollutant, and date range to generate a temporal analysis summary.",
+                                    id="empty_panel_text",
+                                ),
+                            ],
+                            className="insight-inline",
+                        ),
+                        className="insight-box",
+                        ),
+                    )
 
         dff = filter_df(df, selected_sites, selected_pollutant, start_date, effective_end_date)
 
-        if dff.empty or not selected_pollutant:
-            empty_fig = go.Figure()
-            empty_fig.update_layout(
-                title="No data available for selected filters",
-                template="plotly_dark",
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(0,0,0,0)",
-                height=300,
+        if dff.empty:
+            warning_text, warning_style = warning_visible(
+                "No matching data was found for the current selection."
             )
             return (
                 make_kpi("Average", "--", "No data"),
                 make_kpi("Peak", "--", "No data"),
                 make_kpi("Exceedances", "--", "No data"),
                 make_kpi("Variability", "--", "No data"),
-                "No matching data was found for the current selection.",
-                {"display": "block"},
-                dcc.Graph(figure=empty_fig, config={"displayModeBar": True, "displaylogo": False}),
+                warning_text,
+                warning_style,
                 html.Div(
-                    [
-                        html.H4("No Data Available", className="insight-inline"),
-                        html.P("Try adjusting the site, pollutant, or date range."),
-                    ]
+                    className="empty-panel",
+                    children=[
+                        html.Div("No data available", className="empty-panel-title"),
+                        html.Div(
+                            "Try adjusting the selected site, pollutant, or date range.",
+                            className="empty-panel-text",
+                        ),
+                    ],
+                ),
+                html.Div(
+                    html.P(
+                        [
+                            html.Strong("Insights: "),
+                            html.Span(
+                                "No valid observations were available for the current filters."
+                            ),
+                        ],
+                        className="insight-inline",
+                    ),
+                    className="insight-box",
                 ),
             )
 
@@ -1569,8 +1608,7 @@ def register_callbacks(app, wales_df, wales_df_long):
         max_val = dff["value"].max()
         mode = get_mode(days)
 
-        warning_text = ""
-        warning_style = {"display": "none"}
+        warning_text, warning_style = warning_hidden()
 
         if tab == "overview":
             fig = build_overview_chart(
@@ -1701,18 +1739,27 @@ def register_callbacks(app, wales_df, wales_df_long):
                 className="insight-box"
             ),
         )
+    
+
     def calculate_pollution_rose(df, selected_sites,pollutant,start_date,end_date):
+        selected_sites = selected_sites or []        
         if isinstance(selected_sites,str):
             selected_sites = [selected_sites]
+
+        if not selected_sites or not pollutant or not start_date or not end_date:
+            return go.Figure()
+    
         #filter the dataset based on site, pollutant and date range
         filtered = df[
             (df['site'].isin(selected_sites)) &
             (df['pollutants']==pollutant) &
             (df['date']>=pd.to_datetime(start_date)) &
             (df['date']<= pd.to_datetime(end_date))].copy()
+        
         #return an empty figure if no data after filtering
         if filtered.empty:
             return go.Figure()
+        
         #convert degrees into compass directions
         filtered['wind_direction'] = filtered['wd'].apply(degrees_to_direction)
         #change pollutant values into aqi index and categories
@@ -1720,8 +1767,10 @@ def register_callbacks(app, wales_df, wales_df_long):
         filtered['aqi_category'] = filtered['aqi_index'].apply(aqi_category)
         #remove rows with missing wind or aqi categories
         filtered = filtered.dropna(subset=['wind_direction','aqi_category'])
+
         if filtered.empty:
             return go.Figure()
+        
         #working out how many times each aqi category occur in each wind direction 
         direction_counts = (
             filtered.groupby(['wind_direction','aqi_category']).size().reset_index(name='direction_count'))
@@ -1736,7 +1785,9 @@ def register_callbacks(app, wales_df, wales_df_long):
             'High':'orange',
             'Very High':'red'
         }
+
         fig = go.Figure()
+
         #one trace per aqi category
         for category in categories:
             category_data = direction_counts[direction_counts['aqi_category']==category]
@@ -1749,43 +1800,494 @@ def register_callbacks(app, wales_df, wales_df_long):
                 r=category_data['percentage'],
                 theta=category_data['wind_direction'],
                 name=category,
-                marker_color=colours[category]
+                marker_color=colours[category],
+                marker_line_color="rgba(255,255,255,0.15)",
+                marker_line_width=1,
+                opacity=0.9,
+                hovertemplate=(
+                    "Direction: %{theta}<br>"
+                    "AQI Band: " + category + "<br>"
+                    "Share: %{r:.1f}%<extra></extra>"
+                ),
             ))
+
         fig.update_layout(
-            title=f'Pollution Rose, {pollutant}',
-            font_size=16,
-            legend_font_size=16,
-            barmode = 'stack',
+            title=None,
+            barmode="stack",
+            template="plotly_dark",
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(size=12, family="Inter, sans-serif", color="#acb5c0"),
+            legend_title_text="AQI Band",
+            margin=dict(l=20, r=20, t=20, b=20),
             polar_radialaxis_showticklabels=False,
             polar_angularaxis_rotation=90
-            )
+
+        )
 
         return fig
-    @app.callback(
-        Output('pollution_rose_container','children'),
-        Input('site_drop','value'),
-        Input('pol_drop','value'),
-        Input('date_range','start_date'),
-        Input('date_range','end_date')
-    )
+    
+
     #graph for each site 
-    def update_pollution_rose(selected_sites,pollutant,start_date,end_date):
+    @app.callback(
+    Output("pollution_rose_container", "children"),
+    Input("site_drop", "value"),
+    Input("pol_drop", "value"),
+    Input("date_range", "start_date"),
+    Input("date_range", "end_date"),
+    Input("dq_store", "data"),
+)
+    def update_pollution_rose(selected_sites, pollutant, start_date, end_date, dq):
+        """
+        Generate a pollution rose card for each selected site based on the chosen
+        pollutant and date range. Uses consistent empty-panel states when filters
+        are missing or site-level data is unavailable.
+        """
+        selected_sites = ensure_list(selected_sites)
+
         if not selected_sites or not pollutant or not start_date or not end_date:
-            return []
+            return [
+                html.Div(
+                    className="empty-panel",
+                    children=[
+                        html.Div(
+                            "Select site(s), pollutant, and a date range to generate pollution roses.",
+                            className="empty-panel-text",
+                        ),
+                    ],
+                )
+            ]
+
+        effective_end = pd.to_datetime(end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+        if dq == "Ratified":
+            effective_end = min(effective_end, RATIFIED_CUTOFF)
+
+        pollutant_label = POLLUTANT_DISPLAY_NAMES.get(pollutant, pollutant)
         graphs = []
+
         for site in selected_sites:
-            fig = calculate_pollution_rose(wales_df_long,[site],pollutant,start_date, end_date)
-            fig.update_layout(
-                title = (f'{site}-{pollutant}'),
+            fig = calculate_pollution_rose(
+                wales_df_long,
+                [site],
+                pollutant,
+                start_date,
+                effective_end,
             )
-            graphs.append(dcc.Graph(
-                figure=fig,
-                config={'displayModeBar':True, 'displaylogo':False}
-            ))
+
+            if fig.data:
+                fig.update_layout(
+                    title=None,
+                    template="plotly_dark",
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    height=360,
+                    autosize=True,
+                    margin=dict(l=20, r=20, t=20, b=20),
+                    legend_title_text="AQI Band",
+                    font=dict(
+                        family="Inter, sans-serif",
+                        size=12,
+                        color="#acb5c0",
+                    ),
+                )
+
+                content = dcc.Graph(
+                    figure=fig,
+                    className="comparison-site-graph",
+                    style={"height": "360px"},
+                    config={
+                        "displayModeBar": True,
+                        "displaylogo": False,
+                        "responsive": False,
+                    },
+                )
+
+                subtitle = f"Directional distribution of {pollutant_label} concentrations at {site}."
+
+            else:
+                content = html.Div(
+                    className="empty-panel comparison-site-empty",
+                    children=[
+                        html.Div("No data available", className="empty-panel-title"),
+                        html.Div(
+                            f"No valid pollution rose data was available for {site} in the selected period.",
+                            className="empty-panel-text",
+                        ),
+                    ],
+                )
+
+                subtitle = f"No {pollutant_label} directional pattern could be generated for {site}."
+
+            graphs.append(
+                html.Div(
+                    className="comparison-site-card",
+                    children=[
+                        html.Div(
+                            className="comparison-site-card-header",
+                            children=[
+                                html.Div(site, className="comparison-site-title"),
+                                html.Div(subtitle, className="comparison-site-subtitle"),
+                            ],
+                        ),
+                        content,
+                    ],
+                )
+            )
 
         return graphs
    
+    
+    @app.callback(
+    Output("temp_scatter_container", "children"),
+    Output("temp_scatter_subtitle", "children"),
+    Input("site_drop", "value"),
+    Input("pol_drop", "value"),
+    Input("date_range", "start_date"),
+    Input("date_range", "end_date"),
+    Input("dq_store", "data"),
+    )
+    def update_temp_scatter(sites, pollutant, start_date, end_date, dq):
+        '''This callback manages the entire temperature relationship panel,
+        including handling missing filters, data availability, 
+        and generating the scatter plot with appropriate annotations and subtitles.'''
 
+        if filters_missing(sites, pollutant, start_date, end_date):
+            return (
+                html.Div(
+                    className="empty-panel",
+                    children=[
+                        html.Div(
+                            "Select site(s), pollutant, and a date range to generate the temperature relationship overview.",
+                            className="empty-panel-text",
+                        ),
+                    ],
+                ),
+                "Shows how pollutant concentration varies with temperature across the selected site(s). Colours distinguish sites; relationships should be interpreted within each site."
+            )
+
+        sites = ensure_list(sites)
+
+        start_dt = pd.to_datetime(start_date)
+        end_dt = pd.to_datetime(end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+
+        if dq == "Ratified":
+            end_dt = min(end_dt, RATIFIED_CUTOFF)
+
+        dff = wales_df[
+            (wales_df["site"].isin(sites)) &
+            (wales_df["date"] >= start_dt) &
+            (wales_df["date"] <= end_dt)
+        ].copy()
+
+        if pollutant not in dff.columns or "temp" not in dff.columns:
+            return (
+                html.Div(
+                    className="empty-panel",
+                    children=[
+                        html.Div("Unavailable", className="empty-panel-title"),
+                        html.Div(
+                            "Temperature or pollutant columns are unavailable for the current selection.",
+                            className="empty-panel-text",
+                        ),
+                    ],
+                ),
+                "Required variables are unavailable for this view.",
+            )
+
+        dff = dff.dropna(subset=[pollutant, "temp", "site"])
+
+        if dff.empty:
+            return (
+                html.Div(
+                    className="empty-panel",
+                    children=[
+                        html.Div("No data available", className="empty-panel-title"),
+                        html.Div(
+                            "No valid observations were found for the selected site, pollutant, and date range.",
+                            className="empty-panel-text",
+                        ),
+                    ],
+                ),
+                "No matching data is available for the current filters.",
+            )
+
+        pollutant_label = POLLUTANT_DISPLAY_NAMES.get(pollutant, pollutant)
+
+        fig = px.scatter(
+            dff,
+            x="temp",
+            y=pollutant,
+            color="site",
+            trendline="ols",
+            opacity=0.6,
+            labels={
+                "temp": "Temperature (°C)",
+                pollutant: f"{pollutant_label} (µg/m³)",
+                "site": "Monitoring Site",
+            },
+            title=f"Temperature Relationship with {pollutant_label}",
+        )
+
+        # Only show correlation annotation for single-site view
+        if len(sites) == 1:
+            corr_df = dff[["temp", pollutant]].dropna()
+            corr = corr_df["temp"].corr(corr_df[pollutant]) if len(corr_df) >= 2 else None
+            n = len(corr_df)
+
+            annotation_text = f"n = {n}"
+            if corr is not None and pd.notna(corr):
+                annotation_text = f"r = {corr:.2f} · n = {n}"
+
+            fig.add_annotation(
+                text=annotation_text,
+                xref="paper",
+                yref="paper",
+                x=0.99,
+                y=1.12,
+                xanchor="right",
+                showarrow=False,
+                font=dict(
+                    family="Inter, sans-serif",
+                    size=12,
+                    color="#acb5c0",
+                ),
+            )
+
+            subtitle = (
+                f"Site overview of the relationship between temperature and pollutant concentration. Each point represents an observation, with a fitted trendline to indicate overall direction. Correlation coefficient (r) quantifies the strength and direction of the relationship."
+            )
+
+        else:
+            site_counts = (
+                dff.groupby("site")
+                .size()
+                .sort_values(ascending=False)
+                .to_dict()
+            )
+
+            count_text = " · ".join([f"{site}: n={count}" for site, count in site_counts.items()])
+
+            subtitle = (
+                f"Combined overview across {len(sites)} selected sites. " 
+                f"Colours indicate site-level observations. {count_text}"
+            )
+
+        fig.update_traces(
+            marker=dict(size=8),
+            selector=dict(mode="markers"),
+        )
+
+        fig.update_layout(
+            template="plotly_dark",
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            height=360,
+            margin=dict(l=40, r=20, t=70, b=40),
+            title={"x": 0.5},
+            font=dict(
+                family="Inter, sans-serif",
+                size=12,
+                color="#acb5c0",
+            ),
+            legend_title="Site",
+        )
+
+        return (
+            dcc.Graph(
+                figure=fig,
+                className="chart-graph",
+                config={"displayModeBar": True, "displaylogo": False},
+            ),
+            subtitle,
+        )
+    
+    @app.callback(
+    Output("correlation_heatmap_container", "children"),
+    Input("site_drop", "value"),
+    Input("date_range", "start_date"),
+    Input("date_range", "end_date"),
+    Input("dq_store", "data"),
+)
+    def update_corr_heatmap(selected_sites, start_date, end_date, dq):
+        """
+        Generate site-level correlation heatmaps for the selected date range and
+        data quality mode. Uses a more compact rendering when multiple sites are selected.
+        """
+        selected_sites = ensure_list(selected_sites)
+
+        if not selected_sites or not start_date or not end_date:
+            return [
+                html.Div(
+                    className="empty-panel",
+                    children=[
+                        html.Div(
+                            "Select site(s) and a date range to generate site-level correlation matrices.",
+                            className="empty-panel-text",
+                        ),
+                    ],
+                )
+            ]
+
+        start_dt = pd.to_datetime(start_date)
+        end_dt = pd.to_datetime(end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+
+        if dq == "Ratified":
+            end_dt = min(end_dt, RATIFIED_CUTOFF)
+
+        multi_site = len(selected_sites) > 1
+        children = []
+
+        for site in selected_sites:
+            dff = wales_df[
+                (wales_df["site"] == site) &
+                (wales_df["date"] >= start_dt) &
+                (wales_df["date"] <= end_dt)
+            ].copy()
+
+            cols = ["NO2", "PM2.5", "PM10", "O3", "SO2", "temp"]
+            cols = [c for c in cols if c in dff.columns]
+
+            if len(cols) < 2:
+                content = html.Div(
+                    className="empty-panel comparison-site-empty",
+                    children=[
+                        html.Div("Insufficient variables", className="empty-panel-title"),
+                        html.Div(
+                            "At least two variables are required to calculate correlations.",
+                            className="empty-panel-text",
+                        ),
+                    ],
+                )
+                subtitle = "Correlation matrix unavailable."
+
+            else:
+                corr_input = dff[cols].dropna(how="all")
+
+                if corr_input.empty:
+                    content = html.Div(
+                        className="empty-panel comparison-site-empty",
+                        children=[
+                            html.Div("No data available", className="empty-panel-title"),
+                            html.Div(
+                                "No valid observations were available for correlation analysis.",
+                                className="empty-panel-text",
+                            ),
+                        ],
+                    )
+                    subtitle = "Correlation matrix unavailable."
+
+                else:
+                    corr = corr_input.corr()
+
+                    if corr.isna().all().all():
+                        content = html.Div(
+                            className="empty-panel comparison-site-empty",
+                            children=[
+                                html.Div("Correlation unavailable", className="empty-panel-title"),
+                                html.Div(
+                                    "Correlation could not be computed from the selected data.",
+                                    className="empty-panel-text",
+                                ),
+                            ],
+                        )
+                        subtitle = "Correlation matrix unavailable."
+
+                    else:
+                        rename_map = {**POLLUTANT_DISPLAY_NAMES, "temp": "Temp"}
+                        corr = corr.rename(index=rename_map, columns=rename_map)
+
+                        show_text = ".2f"
+                        graph_height = 360 if not multi_site else 300
+                        font_size = 12 if not multi_site else 10
+                        colorbar_thickness = 12 if not multi_site else 10
+
+                        fig = px.imshow(
+                            corr,
+                            text_auto=".2f",
+                            color_continuous_scale="RdBu_r",
+                            zmin=-1,
+                            zmax=1,
+                            aspect="auto",
+                            title=None,
+                        )
+
+                        fig.update_traces(
+                            hovertemplate=(
+                                "X: %{x}<br>"
+                                "Y: %{y}<br>"
+                                "Correlation: %{z:.2f}<extra></extra>"
+                            ),
+                            colorbar=dict(
+                                title="Correlation" if not multi_site else "",
+                                thickness=colorbar_thickness,
+                                len=0.72,
+                                y=0.5,
+                            ),
+                        )
+
+                        if multi_site:
+                            fig.update_coloraxes(showscale=False)
+
+                        fig.update_layout(
+                            template="plotly_dark",
+                            paper_bgcolor="rgba(0,0,0,0)",
+                            plot_bgcolor="rgba(0,0,0,0)",
+                            height=graph_height,
+                            margin=dict(
+                                l=12 if multi_site else 24,
+                                r=12 if multi_site else 24,
+                                t=10,
+                                b=12 if multi_site else 20,
+                            ),
+                            font=dict(
+                                family="Inter, sans-serif",
+                                size=font_size,
+                                color="#acb5c0",
+                            ),
+                        )
+
+                        fig.update_xaxes(
+                            side="bottom",
+                            tickangle=0 if multi_site else 0,
+                            tickfont=dict(size=9 if multi_site else 11),
+                            automargin=True,
+                        )
+                        fig.update_yaxes(
+                            autorange="reversed",
+                            tickfont=dict(size=9 if multi_site else 11),
+                            automargin=True,
+                        )
+
+                        subtitle = (None if multi_site
+                            else f"Pollutant and temperature relationships within {site}."
+                        )
+
+                        content = dcc.Graph(
+                            figure=fig,
+                            className="comparison-site-graph",
+                            style={"height": f"{graph_height}px"},
+                            responsive=True,
+                            config={"displayModeBar": True, "displaylogo": False},
+                        )
+
+            children.append(
+                html.Div(
+                    className="comparison-site-card",
+                    children=[
+                        html.Div(
+                            className="comparison-site-card-header",
+                            children=[
+                                html.Div(site, className="comparison-site-title"),
+                                html.Div(subtitle, className="comparison-site-subtitle"),
+                            ],
+                        ),
+                        content,
+                    ],
+                )
+            )
+
+        return children
+    
     # ────────────────────────────────────────────────────────────
     # Quick select button active glow
     # ─────────────────────────────────────────────────────────────
