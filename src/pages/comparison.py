@@ -47,6 +47,9 @@ layout = html.Div(
                                 html.Div(id="temp_scatter_container")
                             ],
                         ),
+                        html.Div(
+                                    id = 'temp_scatter_insight'
+                        ),
                     ],
                 ),
 
@@ -65,7 +68,7 @@ layout = html.Div(
                                             className="card-subtitle",
                                         ),
                                     ]
-                                )
+                                ),
                             ],
                         ),
                         html.Div(
@@ -77,6 +80,7 @@ layout = html.Div(
                                 )
                             ],
                         ),
+                        html.Div(id = "correlation_heatmap_insights"),
                     ],
                 ),
 
@@ -103,6 +107,9 @@ layout = html.Div(
                                 html.Div(
                                     id="pollution_rose_container",
                                     className="pollution-rose-grid",
+                                ),
+                                html.Div(
+                                    id = 'pollution_rose_insights'
                                 )
                             ],
                         ),
