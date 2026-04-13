@@ -261,7 +261,7 @@ def register_callbacks(app, wales_df, wales_df_long):
     
 
     @app.callback(
-    Output('exceedance_chart','figure'),
+    Output('exceedance_chart_container','children'),
     Input('site_drop','value'),
     Input('pol_drop','value'),
     Input('year_drop','value'),
@@ -272,7 +272,15 @@ def register_callbacks(app, wales_df, wales_df_long):
         who_toggle = threshold_standard == 'WHO'
         #if no selection is made tell the user to select 
         if not selected_sites or not pollutant or not selected_years:
-            return px.bar(title='Select site, pollutant and year')
+            return html.Div(
+            className="empty-panel",
+            children=[
+                html.Div(
+                    "Select site, pollutant and year to generate the exceedance chart.",
+                    className="empty-panel-text",
+                ),
+            ],
+        )
         #make sure sites are in a list
         if isinstance(selected_sites,str):
             selected_sites = [selected_sites]
@@ -282,7 +290,16 @@ def register_callbacks(app, wales_df, wales_df_long):
             (exceedance_data['Year'].isin(selected_years))
         ].copy()
         if results_data.empty:
-            return px.bar(title='No data available')
+            return html.Div(
+                className="empty-panel",
+                children=[
+                    html.Div("No data available", className="empty-panel-title"),
+                    html.Div(
+                        "No exceedance data was available for the selected filters.",
+                        className="empty-panel-text",
+                    ),
+                ],
+            )
         #choose the correct columns based on uk or who limits
         if who_toggle:
             results_data['Value']=results_data['who_value']
@@ -354,7 +371,38 @@ def register_callbacks(app, wales_df, wales_df_long):
         fig.update_layout(
         title=f'{pollutant} Exceedance for Selected Sites',
         barmode='group', #want a bar for each year
-        yaxis_title=y_label)
+        yaxis_title=y_label,
+       
+        template='plotly_dark',
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+
+        
+        font=dict(
+            family="Inter, sans-serif",
+            size=12,
+            color="#acb5c0"
+        ),
+
+        legend=dict(
+            bgcolor='rgba(0,0,0,0)',
+            font=dict(color="#acb5c0"),
+            title=None
+        ))
+        fig.update_xaxes(
+        showgrid=False,
+        zeroline=False,
+        tickfont=dict(color="#acb5c0"),
+        title_font=dict(color="#acb5c0")
+    )
+
+        fig.update_yaxes(
+            showgrid=True,
+            gridcolor='rgba(255,255,255,0.12)',
+            zeroline=False,
+            tickfont=dict(color="#acb5c0"),
+            title_font=dict(color="#acb5c0")
+        )
         unique_limits =results_data['Limit'].dropna().unique()
         if len(unique_limits)==1 and unique_limits[0] !=0:
             fig.add_hline(
@@ -362,7 +410,16 @@ def register_callbacks(app, wales_df, wales_df_long):
                 line_dash='dash',
                 line_color='red'
             )
-        return fig
+        return dcc.Graph(
+            id='exceedance_chart',
+            figure=fig,
+            style={"backgroundColor": "transparent"},
+            config={
+                "displayModeBar": True,
+                "displaylogo": False,
+                "responsive": False,
+            },
+        )
 
 
     @app.callback(
