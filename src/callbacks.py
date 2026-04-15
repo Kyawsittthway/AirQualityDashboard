@@ -2853,8 +2853,7 @@ def register_callbacks(app, wales_df, wales_df_long):
             date_style = {'display': 'none'}
             year_style = {'display': 'block'}
 
-        elif pathname == '/forecast':  # Or your specific forecast URL
-            # Hide the Multi-select, Show the Single-select
+        elif pathname == '/forecast':
             date_style = {'display': 'none'}
             main_site_style = {'display': 'none'}
             forecast_site_style = {'display': 'block'}
