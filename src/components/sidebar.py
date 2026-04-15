@@ -4,6 +4,10 @@ Sage green accents, rounded dropdowns, WHO/UK toggle
 """
 
 from dash import html, dcc
+ALL_SITES = ['Aston Hill', 'Cardiff Centre', "Cardiff Newport Road", 'Chepstow A48',
+             'Cwmbran Crownbridge', 'Hafod-yr-ynys Hill Roadside', 'Narbeth', 'Newport', 'Port Talbot Margam',
+             'Swansea Roadside', 'Wrexham'
+             ]
 
 
 def create_sidebar():
@@ -60,7 +64,9 @@ def create_sidebar():
                                 href='/exceedance',
                                 id='nav-exceedance',
                                 className='nav-link',
-                            )
+                            ),
+                            dcc.Link("Forecast", href="/forecast",
+                                     id="nav-forecast", className="nav-link")
                         ],
                     ),
                 ],
@@ -70,6 +76,7 @@ def create_sidebar():
 
             # WHO / UK Toggle
             html.Div(
+                id="threshold-toggle-wrapper",
                 className="filter-section",
                 children=[
                     html.Div("Threshold Standard", className="filter-label"),
@@ -90,9 +97,8 @@ def create_sidebar():
                             ),
                         ],
                     ),
-                 ],
-                ),  
-            
+                ],
+            ),
             # Theme Toggle
             html.Div(
                 className="filter-section",
@@ -118,6 +124,7 @@ def create_sidebar():
                 ],
             ),
             html.Div(
+                id="quality-toggle-wrapper",
                 className="filter-section",
                 children=[
                     html.Div("Data Quality", className="filter-label"),
@@ -148,20 +155,36 @@ def create_sidebar():
                 className="reset-btn",
                 n_clicks=0,
             ),
-            
+
             # Site Selection
             html.Div(
                 className="filter-section",
                 children=[
                     html.Div("Monitoring Sites", className="filter-label"),
-                    dcc.Dropdown(
-                        className="dropdown-sidebar",
-                        id="site_drop",
-                        placeholder="Select stations...",
-                        multi=True,
-                        value=None,
-                    ),
-                ],
+                    html.Div(
+                        id="main-site-wrapper",
+                        children=[
+                            dcc.Dropdown(
+                                className="dropdown-sidebar",
+                                id="site_drop",
+                                placeholder="Select stations...",
+                                multi=True,
+                                value=None,
+                            )]),
+                    html.Div(
+                        id="forecast-site-wrapper",
+                        style={"display": "none"},
+                        children=[
+                            dcc.Dropdown(
+                                className="dropdown-sidebar",
+                                id="site_drop_forecast",
+                                placeholder="Select a station",
+                                multi=False,
+                                options=[{'label': s, 'value': s}
+                                         for s in ALL_SITES]
+                            )
+                        ]
+                    )],
             ),
             # Pollutant Selection
             html.Div(
@@ -176,13 +199,13 @@ def create_sidebar():
                     ),
                 ],
             ),
-            #year selection
+            # year selection
             html.Div(
-                className = 'filter-section',
+                className='filter-section',
                 id='year-wrapper',
-                style={'display':'none'},
-                children = [
-                    html.Div('Year',className='filter-label'),
+                style={'display': 'none'},
+                children=[
+                    html.Div('Year', className='filter-label'),
                     dcc.Dropdown(
                         id='year_drop',
                         multi=True,
@@ -198,8 +221,8 @@ def create_sidebar():
                 id='date-controls',
                 children=[
                     html.Div(
-                        className = 'filter-section',
-                        children = [
+                        className='filter-section',
+                        children=[
                             html.Div("Quick Select", className="filter-label"),
                             html.Div(
                                 className="quick-date-btns",
