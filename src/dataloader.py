@@ -1,5 +1,6 @@
 import pandas as pd
 from utils.updater import refresh_live_data
+import numpy as np
 
 
 def load_data():
@@ -23,6 +24,10 @@ def load_data():
 
     # Drop rows where the pollutant has no recorded measurement
     wales_df_long = wales_df_long.dropna(subset=["value"])
-    #year for the exceedance calculations
+    # year for the exceedance calculations
     wales_df_long['year'] = wales_df_long['date'].dt.year
+    # drop negative values lower than -2
+    wales_df_long.loc[wales_df_long["value"] < -2, "value"] = np.nan
+    # Floor small negatives (noise) to 0
+    wales_df_long["value"] = wales_df_long["value"].clip(lower=0)
     return wales_df, wales_df_long
