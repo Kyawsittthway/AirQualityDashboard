@@ -2650,80 +2650,116 @@ def register_callbacks(app, wales_df, wales_df_long):
             )
         site_stats = {}
         for site in sites:
-            site_df = dff[dff['site'] == site][['temp',pollutant]].dropna()
-            if len(site_df)>1:
-                r = site_df['temp'].corr(site_df[pollutant])
+            site_df = dff[dff["site"] == site][["temp", pollutant]].dropna()
+            if len(site_df) > 1:
+                r = site_df["temp"].corr(site_df[pollutant])
                 if pd.notna(r):
                     site_stats[site] = r
+
         values = list(site_stats.values())
+
         if len(values) == 0:
-            insight = f"There is no clear relationship between temperature and {pollutant_label} for the current selection."
+            insight = (
+                f"There is no clear relationship between temperature and {pollutant_label} for the current selection."
+            )
         else:
-            average_strength = sum(abs(r) for r in values)/len(values)
-            if average_strength <0.2:
-                strength = 'very weak'
-            elif average_strength <0.4:
-                strength = 'weak'
+            average_strength = sum(abs(r) for r in values) / len(values)
+
+            if average_strength < 0.2:
+                strength = "very weak"
+            elif average_strength < 0.4:
+                strength = "weak"
             elif average_strength < 0.6:
-                strength = 'moderate'
+                strength = "moderate"
             else:
-                strength = 'strong'
-            strongest_site = None 
+                strength = "strong"
+
+            strongest_site = None
             strongest_r = 0
-        for site in site_stats:
-            r = site_stats[site]
-            if strongest_site is None:
-                strongest_site = site
-                strongest_r = r
-            else:
-                if abs(r)> abs(strongest_r):
+
+            for site in site_stats:
+                r = site_stats[site]
+                if strongest_site is None or abs(r) > abs(strongest_r):
                     strongest_site = site
                     strongest_r = r
-        has_positive = 0
-        has_negative = 0
-        for r in values:
-            if r >0:
-                has_positive +=1
-            elif r< 0:
-                has_negative +=1
-            
-        if len(site_stats) == 1:
-            insight = f"There is a {strength} {direction} relationship (r = {round(strongest_r,2)}) between the pollutant {pollutant_label} and temperature."
-        elif has_positive and has_negative:
-            if len(site_stats) <= 3:
-                descriptions = []
-                for site in site_stats:
-                    r = site_stats[site]
-                    if abs(r) < 0.2:
-                        strength_site = "very weak"
-                    elif abs(r) < 0.4:
-                        strength_site = "weak"
-                    elif abs(r) < 0.6:
-                        strength_site = "moderate"
-                    else:
-                        strength_site = "strong"
 
-                    if r > 0:
-                        direction_site = "positive"
-                    elif r < 0:
-                        direction_site = "negative"
-                    descriptions.append( f"{site} shows a {strength_site} {direction_site} relationship (r = {round(r,2)}) ")
-                if len(descriptions)==1:
-                    text = descriptions[0]
-                elif len(descriptions) ==2:
-                    text = f"{descriptions[0]} and {descriptions[1]}."
+            if strongest_r > 0:
+                strongest_direction = "positive"
+            elif strongest_r < 0:
+                strongest_direction = "negative"
+            else:
+                strongest_direction = "no clear"
+
+            has_positive = 0
+            has_negative = 0
+            for r in values:
+                if r > 0:
+                    has_positive += 1
+                elif r < 0:
+                    has_negative += 1
+
+            if has_positive and has_negative:
+                overall_direction = "mixed"
+            elif has_positive:
+                overall_direction = "positive"
+            elif has_negative:
+                overall_direction = "negative"
+            else:
+                overall_direction = "no clear"
+
+            if len(site_stats) == 1:
+                insight = (
+                    f"There is a {strength} {strongest_direction} relationship (r = {round(strongest_r, 2)}) between the pollutant {pollutant_label} and temperature."
+                )
+
+            elif overall_direction == "mixed":
+                if len(site_stats) <= 3:
+                    descriptions = []
+                    for site in site_stats:
+                        r = site_stats[site]
+
+                        if abs(r) < 0.2:
+                            strength_site = "very weak"
+                        elif abs(r) < 0.4:
+                            strength_site = "weak"
+                        elif abs(r) < 0.6:
+                            strength_site = "moderate"
+                        else:
+                            strength_site = "strong"
+
+                        if r > 0:
+                            direction_site = "positive"
+                        elif r < 0:
+                            direction_site = "negative"
+                        else:
+                            direction_site = "no clear"
+
+                        descriptions.append(
+                            f"{site} shows a {strength_site} {direction_site} relationship (r = {round(r, 2)})"
+                        )
+
+                    if len(descriptions) == 1:
+                        text = descriptions[0] + "."
+                    elif len(descriptions) == 2:
+                        text = f"{descriptions[0]} and {descriptions[1]}."
+                    else:
+                        text = (
+                            f"{descriptions[0]}, {descriptions[1]} and {descriptions[2]}."
+                        )
+
+                    insight = (
+                        f"Across the selected sites, the relationship between temperature and {pollutant_label} is mixed. {text}"
+                    )
                 else:
-                    text = f"{descriptions[0]}, {descriptions[1]} and {descriptions[2]}."
-                insight = (f"Across the selected sites the relationship between temperature and {pollutant_label} is mixed. {text}")
+                    insight = (
+                        f"Across the selected sites, the relationship between temperature and {pollutant_label} is mixed, with some sites showing positive relationships and others showing negative ones. The strongest relationship is at {strongest_site} (r = {round(strongest_r, 2)})."
+                    )
+
             else:
-                insight = (f"Across the selected sites, the relatioship between temperature and {pollutant_label} is mixed, with some sites showing positive relationships and others showing negative ones. The strongest relationship is at {strongest_site} (r = {round(strongest_r,2)}).")
-        else:
-            if  sum(values) > 0 :
-                direction = "positive"
-            else:
-                direction = "negative"
-            insight = (f"Across the selected sites, {pollutant_label} has an average {strength} {direction} relationship with temprature. The strongest relationship is at {strongest_site} (r = {round(strongest_r,2)}). ")   
-        fig.update_traces(
+                insight = (
+                    f"Across the selected sites, {pollutant_label} has an average {strength} {overall_direction} relationship with temperature. The strongest relationship is at {strongest_site} (r = {round(strongest_r, 2)})."
+                )
+            fig.update_traces(
             marker=dict(size=8),
             selector=dict(mode="markers"),
         )
