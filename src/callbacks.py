@@ -3108,8 +3108,11 @@ def register_callbacks(app, wales_df, wales_df_long):
         forecast_site_style = {'display': 'none'}
         threshold_toggle = {'display': 'block'}
         quality_toggle = {'display': 'block'}
-
-        if pathname == '/exceedance':
+        if pathname == '/':
+            threshold_toggle = {'display': 'none'}
+        elif pathname == '/comparison':
+            threshold_toggle = {'display': 'none'}
+        elif pathname == '/exceedance':
             date_style = {'display': 'none'}
             year_style = {'display': 'block'}
 
