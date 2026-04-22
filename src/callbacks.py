@@ -655,28 +655,28 @@ def register_callbacks(app, wales_df, wales_df_long):
         return [{'label': y, 'value': y} for y in valid if y < 2026]
 
     @app.callback(
-    Output('exceedance_chart_container','children'),
-    Input('site_drop','value'),
-    Input('pol_drop','value'),
-    Input('year_drop','value'),
-    Input('threshold-store','data')
-)
-    def exceedance_bar(selected_sites,pollutant, selected_years,threshold_standard):
-        #check if who limits selected 
+        Output('exceedance_chart_container', 'children'),
+        Input('site_drop', 'value'),
+        Input('pol_drop', 'value'),
+        Input('year_drop', 'value'),
+        Input('threshold-store', 'data')
+    )
+    def exceedance_bar(selected_sites, pollutant, selected_years, threshold_standard):
+        # check if who limits selected
         who_toggle = threshold_standard == 'WHO'
         # if no selection is made tell the user to select
         if not selected_sites or not pollutant or not selected_years:
             return html.Div(
-            className="empty-panel",
-            children=[
-                html.Div(
-                    "Select site, pollutant and year to generate the exceedance chart.",
-                    className="empty-panel-text",
-                ),
-            ],
-        )
-        #make sure sites are in a list
-        if isinstance(selected_sites,str):
+                className="empty-panel",
+                children=[
+                    html.Div(
+                        "Select site, pollutant and year to generate the exceedance chart.",
+                        className="empty-panel-text",
+                    ),
+                ],
+            )
+        # make sure sites are in a list
+        if isinstance(selected_sites, str):
             selected_sites = [selected_sites]
         results_data = exceedance_data[
             (exceedance_data['Site'].isin(selected_sites)) &
@@ -687,14 +687,15 @@ def register_callbacks(app, wales_df, wales_df_long):
             return html.Div(
                 className="empty-panel",
                 children=[
-                    html.Div("No data available", className="empty-panel-title"),
+                    html.Div("No data available",
+                             className="empty-panel-title"),
                     html.Div(
                         "No exceedance data was available for the selected filters.",
                         className="empty-panel-text",
                     ),
                 ],
             )
-        #choose the correct columns based on uk or who limits
+        # choose the correct columns based on uk or who limits
         if who_toggle:
             results_data['Value'] = results_data['who_value']
             results_data['Limit'] = results_data['who_limit']
@@ -765,32 +766,32 @@ def register_callbacks(app, wales_df, wales_df_long):
             y_label = pollutant_labels_uk.get(pollutant, 'Value')
 
         fig.update_layout(
-        title=f'{pollutant} Exceedance for Selected Sites',
-        barmode='group', #want a bar for each year
-        yaxis_title=y_label,
-       
-        template='plotly_dark',
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
+            title=f'{pollutant} Exceedance for Selected Sites',
+            barmode='group',  # want a bar for each year
+            yaxis_title=y_label,
 
-        
-        font=dict(
-            family="Inter, sans-serif",
-            size=12,
-            color="#acb5c0"
-        ),
+            template='plotly_dark',
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
 
-        legend=dict(
-            bgcolor='rgba(0,0,0,0)',
-            font=dict(color="#acb5c0"),
-            title=None
-        ))
+
+            font=dict(
+                family="Inter, sans-serif",
+                size=12,
+                color="#acb5c0"
+            ),
+
+            legend=dict(
+                bgcolor='rgba(0,0,0,0)',
+                font=dict(color="#acb5c0"),
+                title=None
+            ))
         fig.update_xaxes(
-        showgrid=False,
-        zeroline=False,
-        tickfont=dict(color="#acb5c0"),
-        title_font=dict(color="#acb5c0")
-    )
+            showgrid=False,
+            zeroline=False,
+            tickfont=dict(color="#acb5c0"),
+            title_font=dict(color="#acb5c0")
+        )
 
         fig.update_yaxes(
             showgrid=True,
@@ -799,8 +800,8 @@ def register_callbacks(app, wales_df, wales_df_long):
             tickfont=dict(color="#acb5c0"),
             title_font=dict(color="#acb5c0")
         )
-        unique_limits =results_data['Limit'].dropna().unique()
-        if len(unique_limits)==1 and unique_limits[0] !=0:
+        unique_limits = results_data['Limit'].dropna().unique()
+        if len(unique_limits) == 1 and unique_limits[0] != 0:
             fig.add_hline(
                 y=unique_limits[0],
                 line_dash='dash',
@@ -1685,7 +1686,7 @@ def register_callbacks(app, wales_df, wales_df_long):
         triggered = callback_context.triggered_id
         if triggered == "yday":
             d = today - timedelta(days=1)
-            return {"start": str(d), "end": str(d)}
+            return {"start": str(d), "end": str(today)}
         elif triggered == "last_week":
             return {"start": str(today - timedelta(days=7)), "end": str(today)}
         elif triggered == "last_month":
@@ -2356,9 +2357,9 @@ def register_callbacks(app, wales_df, wales_df_long):
             font=dict(size=12, family="Inter, sans-serif", color="#acb5c0"),
             legend_title_text="AQI Band",
             margin=dict(l=20, r=20, t=20, b=20),
-            polar = dict(
-                radialaxis = dict(showticklabels = False),
-                angularaxis = dict(rotation=90, direction='clockwise')
+            polar=dict(
+                radialaxis=dict(showticklabels=False),
+                angularaxis=dict(rotation=90, direction='clockwise')
             )
         )
 
@@ -2367,13 +2368,13 @@ def register_callbacks(app, wales_df, wales_df_long):
     # graph for each site
 
     @app.callback(
-    Output("pollution_rose_container", "children"),
-    Output("pollution_rose_insights",'children'),
-    Input("site_drop", "value"),
-    Input("pol_drop", "value"),
-    Input("date_range", "start_date"),
-    Input("date_range", "end_date"),
-    Input("dq_store", "data"),
+        Output("pollution_rose_container", "children"),
+        Output("pollution_rose_insights", 'children'),
+        Input("site_drop", "value"),
+        Input("pol_drop", "value"),
+        Input("date_range", "start_date"),
+        Input("date_range", "end_date"),
+        Input("dq_store", "data"),
     )
     def update_pollution_rose(selected_sites, pollutant, start_date, end_date, dq):
         """
@@ -2394,12 +2395,13 @@ def register_callbacks(app, wales_df, wales_df_long):
                         ),
                     ],
                 )
-            ],html.Div(
+            ], html.Div(
                 html.P(
-                    [html.Strong("Insights: "), "Select a site, pollutant and date range to generate a pollution rose summary."],
-                    className = "insight-inline",
+                    [html.Strong(
+                        "Insights: "), "Select a site, pollutant and date range to generate a pollution rose summary."],
+                    className="insight-inline",
                 ),
-                className = 'insight-box',
+                className='insight-box',
             )
 
         effective_end = pd.to_datetime(
@@ -2481,40 +2483,47 @@ def register_callbacks(app, wales_df, wales_df_long):
                     ],
                 )
             ),
-        filtered_all = filter_df(wales_df_long,selected_sites,pollutant, start_date, effective_end).copy()
-        filtered_all['wind_direction'] = filtered_all['wd'].apply(degrees_to_direction)
-        filtered_all['aqi_index'] = filtered_all['value'].apply(lambda x: aqi_index(x,pollutant))
-        filtered_all['aqi_category'] = filtered_all['aqi_index'].apply(aqi_category)
-        filtered_all = filtered_all.dropna(subset=['wind_direction','aqi_category'])
+        filtered_all = filter_df(
+            wales_df_long, selected_sites, pollutant, start_date, effective_end).copy()
+        filtered_all['wind_direction'] = filtered_all['wd'].apply(
+            degrees_to_direction)
+        filtered_all['aqi_index'] = filtered_all['value'].apply(
+            lambda x: aqi_index(x, pollutant))
+        filtered_all['aqi_category'] = filtered_all['aqi_index'].apply(
+            aqi_category)
+        filtered_all = filtered_all.dropna(
+            subset=['wind_direction', 'aqi_category'])
         if filtered_all.empty:
             insight = "No data available for the selected filters"
         else:
             mode_aqi = filtered_all['aqi_category'].value_counts().idxmax()
-            wind_direction_counts = filtered_all['wind_direction'].value_counts()
+            wind_direction_counts = filtered_all['wind_direction'].value_counts(
+            )
             mode_direction = wind_direction_counts.idxmax()
-            direction_percentages = (wind_direction_counts/len(filtered_all))*100
+            direction_percentages = (
+                wind_direction_counts/len(filtered_all))*100
             dominant_percentage = direction_percentages.max()
             insight = (f'The most common wind direction for {pollutant} is {mode_direction} which accounts for {dominant_percentage:.1f}% of the observations.'
                        f'The most common AQI category is {mode_aqi}.')
 
-        return graphs,html.Div(
+        return graphs, html.Div(
             html.P(
-                [html.Strong('Insights: '),insight],
-                className = 'insight-inline'
+                [html.Strong('Insights: '), insight],
+                className='insight-inline'
             ),
-            className = 'insight-box'
-        
+            className='insight-box'
+
         )
-    
+
     @app.callback(
-    Output("temp_scatter_container", "children"),
-    Output("temp_scatter_subtitle", "children"),
-    Output("temp_scatter_insight","children"),
-    Input("site_drop", "value"),
-    Input("pol_drop", "value"),
-    Input("date_range", "start_date"),
-    Input("date_range", "end_date"),
-    Input("dq_store", "data"),
+        Output("temp_scatter_container", "children"),
+        Output("temp_scatter_subtitle", "children"),
+        Output("temp_scatter_insight", "children"),
+        Input("site_drop", "value"),
+        Input("pol_drop", "value"),
+        Input("date_range", "start_date"),
+        Input("date_range", "end_date"),
+        Input("dq_store", "data"),
     )
     def update_temp_scatter(sites, pollutant, start_date, end_date, dq):
         '''This callback manages the entire temperature relationship panel,
@@ -2760,9 +2769,9 @@ def register_callbacks(app, wales_df, wales_df_long):
                     f"Across the selected sites, {pollutant_label} has an average {strength} {overall_direction} relationship with temperature. The strongest relationship is at {strongest_site} (r = {round(strongest_r, 2)})."
                 )
             fig.update_traces(
-            marker=dict(size=8),
-            selector=dict(mode="markers"),
-        )
+                marker=dict(size=8),
+                selector=dict(mode="markers"),
+            )
 
         fig.update_layout(
             template="plotly_dark",
@@ -2785,24 +2794,24 @@ def register_callbacks(app, wales_df, wales_df_long):
                 className="chart-graph",
                 config={"displayModeBar": True, "displaylogo": False},
             ),
-            subtitle, 
+            subtitle,
             html.Div(
-        html.P(
-            [html.Strong("Insights: "), insight],
-            className="insight-inline",
-        ),
-        className="insight-box",
-    )
+                html.P(
+                    [html.Strong("Insights: "), insight],
+                    className="insight-inline",
+                ),
+                className="insight-box",
+            )
         )
 
     @app.callback(
-    Output("correlation_heatmap_container", "children"),
-    Output("correlation_heatmap_insights","children"),
-    Input("site_drop", "value"),
-    Input("date_range", "start_date"),
-    Input("date_range", "end_date"),
-    Input("dq_store", "data"),
-)
+        Output("correlation_heatmap_container", "children"),
+        Output("correlation_heatmap_insights", "children"),
+        Input("site_drop", "value"),
+        Input("date_range", "start_date"),
+        Input("date_range", "end_date"),
+        Input("dq_store", "data"),
+    )
     def update_corr_heatmap(selected_sites, start_date, end_date, dq):
         """
         Generate site-level correlation heatmaps for the selected date range and
@@ -2813,26 +2822,25 @@ def register_callbacks(app, wales_df, wales_df_long):
         if not selected_sites or not start_date or not end_date:
             return (
                 [
+                    html.Div(
+                        className="empty-panel",
+                        children=[
+                            html.Div(
+                                "Select site(s) and a date range to generate site-level correlation matrices.",
+                                className="empty-panel-text",
+                            ),
+                        ],
+                    )
+                ],
                 html.Div(
-                    className="empty-panel",
-                    children=[
-                        html.Div(
-                            "Select site(s) and a date range to generate site-level correlation matrices.",
-                            className="empty-panel-text",
-                        ),
-                    ],
-                )
-            ],
-            html.Div(
-                html.P(
-                    [html.Strong("Insights: "), "Select site(s) and a date range to generate a heatmap summary."],
-                    className = "insight-inline",
-                ),
-                className = "insight-box",
+                    html.P(
+                        [html.Strong(
+                            "Insights: "), "Select site(s) and a date range to generate a heatmap summary."],
+                        className="insight-inline",
+                    ),
+                    className="insight-box",
                 ),
             )
-        
-
 
         start_dt = pd.to_datetime(start_date)
         end_dt = pd.to_datetime(end_date) + \
@@ -2894,24 +2902,25 @@ def register_callbacks(app, wales_df, wales_df_long):
                     min_pairs = []
                     for i in range(len(cols)):
                         for j in range(i+1, len(cols)):
-                            value = corr.iloc[i,j]
+                            value = corr.iloc[i, j]
                             if pd.notna(value):
                                 if value > 0:
                                     if max_corr is None or value > max_corr:
                                         max_corr = value
-                                        max_pairs = [(cols[i],cols[j])]
-                                    elif np.isclose(value,max_corr):
-                                        max_pairs.append((cols[i],cols[j]))
-                                    
+                                        max_pairs = [(cols[i], cols[j])]
+                                    elif np.isclose(value, max_corr):
+                                        max_pairs.append((cols[i], cols[j]))
+
                                 if value < 0:
                                     if min_corr is None or value < min_corr:
                                         min_corr = value
-                                        min_pairs = [(cols[i],cols[j])]
-                                    elif np.isclose(value,min_corr):
-                                        min_pairs.append((cols[i],cols[j]))
-                                    
+                                        min_pairs = [(cols[i], cols[j])]
+                                    elif np.isclose(value, min_corr):
+                                        min_pairs.append((cols[i], cols[j]))
+
                     if max_corr is not None or min_corr is not None:
-                        site_results.append({'site': site,'max_corr':max_corr, 'max_pairs': max_pairs, 'min_corr': min_corr, 'min_pairs': min_pairs})
+                        site_results.append(
+                            {'site': site, 'max_corr': max_corr, 'max_pairs': max_pairs, 'min_corr': min_corr, 'min_pairs': min_pairs})
                     if corr.isna().all().all():
                         content = html.Div(
                             className="empty-panel comparison-site-empty",
@@ -3031,15 +3040,18 @@ def register_callbacks(app, wales_df, wales_df_long):
             positive_pairs = None
             negative_pairs = None
             if result["max_corr"] is not None:
-                positive_pairs = ", ".join(f"{'Temp' if v1 == 'temp' else POLLUTANT_DISPLAY_NAMES.get(v1,v1) and 'Temp' if v2 == 'temp' else POLLUTANT_DISPLAY_NAMES.get(v2,v2)}" for v1,v2 in result["max_pairs"])
+                positive_pairs = ", ".join(
+                    f"{'Temp' if v1 == 'temp' else POLLUTANT_DISPLAY_NAMES.get(v1, v1) and 'Temp' if v2 == 'temp' else POLLUTANT_DISPLAY_NAMES.get(v2, v2)}" for v1, v2 in result["max_pairs"])
             if result["min_corr"] is not None:
-                negative_pairs = ", ".join(f"{'Temp' if v1 == 'temp' else POLLUTANT_DISPLAY_NAMES.get(v1,v1) and 'Temp' if v2 == 'temp' else POLLUTANT_DISPLAY_NAMES.get(v2,v2)}" for v1,v2 in result["min_pairs"])
-            
+                negative_pairs = ", ".join(
+                    f"{'Temp' if v1 == 'temp' else POLLUTANT_DISPLAY_NAMES.get(v1, v1) and 'Temp' if v2 == 'temp' else POLLUTANT_DISPLAY_NAMES.get(v2, v2)}" for v1, v2 in result["min_pairs"])
+
             if result["max_corr"] is not None and result["min_corr"] is not None:
-                insight = (f"At {result['site']}, the strongest positive relationship is between {positive_pairs} (r= {round(result['max_corr'],2)}), while the strongest negative relationship is between {negative_pairs} (r = {round(result['min_corr'],2)})")
+                insight = (f"At {result['site']}, the strongest positive relationship is between {positive_pairs} (r= {round(result['max_corr'], 2)}), while the strongest negative relationship is between {negative_pairs} (r = {round(result['min_corr'], 2)})")
             elif result["max_corr"] is not None:
-                insight = (f"At {result['site']}, the strongest positive relationship is between {positive_pairs} (r={round(result['max_corr'],2)}).")
-            
+                insight = (
+                    f"At {result['site']}, the strongest positive relationship is between {positive_pairs} (r={round(result['max_corr'], 2)}).")
+
         else:
             strongest_positive = None
             strongest_negative = None
@@ -3048,36 +3060,36 @@ def register_callbacks(app, wales_df, wales_df_long):
                     if strongest_positive is None or result["max_corr"] > strongest_positive["max_corr"]:
                         strongest_positive = result
                 if result["min_corr"] is not None:
-                    if strongest_negative is None or result["min_corr"]<strongest_negative["min_corr"]:
+                    if strongest_negative is None or result["min_corr"] < strongest_negative["min_corr"]:
                         strongest_negative = result
                 positive_pairs = None
                 negative_pairs = None
                 if strongest_positive is not None:
-                    positive_pairs = ", ".join(f"{'Temp' if v1 == 'temp' else POLLUTANT_DISPLAY_NAMES.get(v1,v1)} and {'Temp' if v2 == 'temp' else POLLUTANT_DISPLAY_NAMES.get(v2,v2)}" for v1,v2 in result["max_pairs"])
+                    positive_pairs = ", ".join(
+                        f"{'Temp' if v1 == 'temp' else POLLUTANT_DISPLAY_NAMES.get(v1, v1)} and {'Temp' if v2 == 'temp' else POLLUTANT_DISPLAY_NAMES.get(v2, v2)}" for v1, v2 in result["max_pairs"])
                 if strongest_negative is not None:
-                    negative_pairs = ", ".join(f"{'Temp' if v1 == 'temp' else POLLUTANT_DISPLAY_NAMES.get(v1,v1)} and {'Temp' if v2 == 'temp' else POLLUTANT_DISPLAY_NAMES.get(v2,v2)}" for v1,v2 in result["min_pairs"])
-        
+                    negative_pairs = ", ".join(
+                        f"{'Temp' if v1 == 'temp' else POLLUTANT_DISPLAY_NAMES.get(v1, v1)} and {'Temp' if v2 == 'temp' else POLLUTANT_DISPLAY_NAMES.get(v2, v2)}" for v1, v2 in result["min_pairs"])
+
                 if strongest_positive is not None and strongest_negative is not None:
-                    insight = f"Across the selected sites, the strongest positive {positive_pairs} at {strongest_positive['site']} (r={round(strongest_positive['max_corr'],2)}), while the strongest negative relationship is between {negative_pairs} at {strongest_negative['site']} (r = {round(strongest_negative['min_corr'],2)})."
-                
+                    insight = f"Across the selected sites, the strongest positive {positive_pairs} at {strongest_positive['site']} (r={round(strongest_positive['max_corr'], 2)}), while the strongest negative relationship is between {negative_pairs} at {strongest_negative['site']} (r = {round(strongest_negative['min_corr'], 2)})."
+
                 elif strongest_positive is not None:
-                    insight = f"Across the selected sites, the strongest positive {positive_pairs} at {strongest_positive['site']} (r={round(strongest_positive['max_corr'],2)})."
+                    insight = f"Across the selected sites, the strongest positive {positive_pairs} at {strongest_positive['site']} (r={round(strongest_positive['max_corr'], 2)})."
                 elif strongest_negative is not None:
-                    insight =  f"Across the selected sites, the strongest negative relationship is between {negative_pairs} at {strongest_negative['site']} (r = {round(strongest_negative['min_corr'],2)})."
+                    insight = f"Across the selected sites, the strongest negative relationship is between {negative_pairs} at {strongest_negative['site']} (r = {round(strongest_negative['min_corr'], 2)})."
                 else:
                     insight = "There is no clear heatmap insight available for the selected sites."
-                
-                           
-        return( children, html.Div(
+
+        return (children, html.Div(
             html.P(
                 [html.Strong("Insights: "), insight],
-                className = "insight-inline",
+                className="insight-inline",
             ),
-            className = "insight-box"
-            ),
+            className="insight-box"
+        ),
         )
-        
-    
+
     # ────────────────────────────────────────────────────────────
     # Quick select button active glow
     # ─────────────────────────────────────────────────────────────
