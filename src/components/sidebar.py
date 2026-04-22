@@ -1,9 +1,5 @@
-"""
-Sidebar Component - Apple Style
-Sage green accents, rounded dropdowns, WHO/UK toggle
-"""
-
 from dash import html, dcc
+
 ALL_SITES = ['Aston Hill', 'Cardiff Centre', "Cardiff Newport Road", 'Chepstow A48',
              'Cwmbran Crownbridge', 'Hafod-yr-ynys Hill Roadside', 'Narbeth', 'Newport', 'Port Talbot Margam',
              'Swansea Roadside', 'Wrexham'
@@ -11,7 +7,6 @@ ALL_SITES = ['Aston Hill', 'Cardiff Centre', "Cardiff Newport Road", 'Chepstow A
 
 
 def create_sidebar():
-    """Create Apple-style sidebar with navigation and filters."""
     return html.Div(
         id="sidebar",
         children=[
@@ -65,14 +60,129 @@ def create_sidebar():
                                 id='nav-exceedance',
                                 className='nav-link',
                             ),
-                            dcc.Link("Forecast", href="/forecast",
-                                     id="nav-forecast", className="nav-link")
+                            dcc.Link(
+                                "Forecast",
+                                href="/forecast",
+                                id="nav-forecast",
+                                className="nav-link",
+                            ),
                         ],
                     ),
                 ],
             ),
 
             html.Div(className="sidebar-divider"),
+
+            # Site Selection
+            html.Div(
+                className="filter-section",
+                children=[
+                    html.Div("Monitoring Sites", className="filter-label"),
+                    html.Div(
+                        id="main-site-wrapper",
+                        children=[
+                            dcc.Dropdown(
+                                className="dropdown-sidebar",
+                                id="site_drop",
+                                placeholder="Select stations...",
+                                multi=True,
+                                value=None,
+                            ),
+                        ],
+                    ),
+                    html.Div(
+                        id="forecast-site-wrapper",
+                        style={"display": "none"},
+                        children=[
+                            dcc.Dropdown(
+                                className="dropdown-sidebar",
+                                id="site_drop_forecast",
+                                placeholder="Select a station",
+                                multi=False,
+                                options=[{'label': s, 'value': s}
+                                         for s in ALL_SITES],
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+
+            # Pollutant Selection
+            html.Div(
+                className="filter-section",
+                children=[
+                    html.Div("Pollutant", className="filter-label"),
+                    dcc.Dropdown(
+                        id="pol_drop",
+                        placeholder="Select pollutant...",
+                        value=None,
+                        className="dropdown-sidebar",
+                    ),
+                ],
+            ),
+
+            # Year Selection
+            html.Div(
+                className='filter-section',
+                id='year-wrapper',
+                style={'display': 'none'},
+                children=[
+                    html.Div('Year', className='filter-label'),
+                    dcc.Dropdown(
+                        id='year_drop',
+                        multi=True,
+                        placeholder='Choose years',
+                        options=[],
+                        className='dropdown-sidebar',
+                    ),
+                ],
+            ),
+
+            # Quick Date Range Buttons
+            html.Div(
+                id='date-controls',
+                children=[
+                    html.Div(
+                        className='filter-section',
+                        children=[
+                            html.Div("Quick Select", className="filter-label"),
+                            html.Div(
+                                className="quick-date-btns",
+                                children=[
+                                    html.Button("Yesterday", id="yday",
+                                                className="quick-date-btn", n_clicks=0),
+                                    html.Button("Last 7 days", id="last_week",
+                                                className="quick-date-btn", n_clicks=0),
+                                    html.Button("Last 30 days", id="last_month",
+                                                className="quick-date-btn", n_clicks=0),
+                                ],
+                            ),
+                        ],
+                    ),
+                    # Date Range
+                    html.Div(
+                        className="filter-section",
+                        children=[
+                            html.Div("Date Range", className="filter-label"),
+                            dcc.DatePickerRange(
+                                id="date_range",
+                                display_format="DD MMM YYYY",
+                                start_date_placeholder_text="Start",
+                                end_date_placeholder_text="End",
+                                className="dropdown-sidebar",
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+
+            # Reset Button
+            html.Button(
+                "↻ Reset All Filters",
+                id="reset_btn",
+                className="reset-btn",
+                n_clicks=0,
+            ),
 
             # WHO / UK Toggle
             html.Div(
@@ -99,6 +209,7 @@ def create_sidebar():
                     ),
                 ],
             ),
+
             # Theme Toggle
             html.Div(
                 className="filter-section",
@@ -123,6 +234,8 @@ def create_sidebar():
                     ),
                 ],
             ),
+
+            # Data Quality Toggle
             html.Div(
                 id="quality-toggle-wrapper",
                 className="filter-section",
@@ -143,111 +256,6 @@ def create_sidebar():
                                 id="toggle-ratified",
                                 className="toggle-option",
                                 n_clicks=0,
-                            ),
-                        ],
-                    ),
-                ],
-            ),
-            # Reset Button
-            html.Button(
-                "↻ Reset All Filters",
-                id="reset_btn",
-                className="reset-btn",
-                n_clicks=0,
-            ),
-
-            # Site Selection
-            html.Div(
-                className="filter-section",
-                children=[
-                    html.Div("Monitoring Sites", className="filter-label"),
-                    html.Div(
-                        id="main-site-wrapper",
-                        children=[
-                            dcc.Dropdown(
-                                className="dropdown-sidebar",
-                                id="site_drop",
-                                placeholder="Select stations...",
-                                multi=True,
-                                value=None,
-                            )]),
-                    html.Div(
-                        id="forecast-site-wrapper",
-                        style={"display": "none"},
-                        children=[
-                            dcc.Dropdown(
-                                className="dropdown-sidebar",
-                                id="site_drop_forecast",
-                                placeholder="Select a station",
-                                multi=False,
-                                options=[{'label': s, 'value': s}
-                                         for s in ALL_SITES]
-                            )
-                        ]
-                    )],
-            ),
-            # Pollutant Selection
-            html.Div(
-                className="filter-section",
-                children=[
-                    html.Div("Pollutant", className="filter-label"),
-                    dcc.Dropdown(
-                        id="pol_drop",
-                        placeholder="Select pollutant...",
-                        value=None,
-                        className="dropdown-sidebar",
-                    ),
-                ],
-            ),
-            # year selection
-            html.Div(
-                className='filter-section',
-                id='year-wrapper',
-                style={'display': 'none'},
-                children=[
-                    html.Div('Year', className='filter-label'),
-                    dcc.Dropdown(
-                        id='year_drop',
-                        multi=True,
-                        placeholder='Choose years',
-                        options=[],
-                        className='dropdown-sidebar',
-                    )
-                ]
-            ),
-
-            # Quick Date Range Buttons
-            html.Div(
-                id='date-controls',
-                children=[
-                    html.Div(
-                        className='filter-section',
-                        children=[
-                            html.Div("Quick Select", className="filter-label"),
-                            html.Div(
-                                className="quick-date-btns",
-                                children=[
-                                    html.Button("Yesterday", id="yday",
-                                                className="quick-date-btn", n_clicks=0),
-                                    html.Button("Last 7 days", id="last_week",
-                                                className="quick-date-btn", n_clicks=0),
-                                    html.Button("Last 30 days", id="last_month",
-                                                className="quick-date-btn", n_clicks=0)
-                                ]
-                            )
-                        ]
-                    ),
-                    # Date Range
-                    html.Div(
-                        className="filter-section",
-                        children=[
-                            html.Div("Date Range", className="filter-label"),
-                            dcc.DatePickerRange(
-                                id="date_range",
-                                display_format="DD MMM YYYY",
-                                start_date_placeholder_text="Start",
-                                end_date_placeholder_text="End",
-                                className="dropdown-sidebar",
                             ),
                         ],
                     ),
