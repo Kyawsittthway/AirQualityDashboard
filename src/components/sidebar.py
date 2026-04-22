@@ -1,4 +1,6 @@
 from dash import html, dcc
+from datetime import datetime, timedelta
+
 
 ALL_SITES = ['Aston Hill', 'Cardiff Centre', "Cardiff Newport Road", 'Chepstow A48',
              'Cwmbran Crownbridge', 'Hafod-yr-ynys Hill Roadside', 'Narbeth', 'Newport', 'Port Talbot Margam',
@@ -86,7 +88,9 @@ def create_sidebar():
                                 id="site_drop",
                                 placeholder="Select stations...",
                                 multi=True,
-                                value=None,
+                                value=["Cardiff Centre", "Swansea Roadside"],
+                                options=[{'label': s, 'value': s}
+                                         for s in ALL_SITES],
                             ),
                         ],
                     ),
@@ -99,6 +103,7 @@ def create_sidebar():
                                 id="site_drop_forecast",
                                 placeholder="Select a station",
                                 multi=False,
+                                value="Cardiff Centre",
                                 options=[{'label': s, 'value': s}
                                          for s in ALL_SITES],
                             ),
@@ -115,8 +120,15 @@ def create_sidebar():
                     dcc.Dropdown(
                         id="pol_drop",
                         placeholder="Select pollutant...",
-                        value=None,
+                        value="NO2",
                         className="dropdown-sidebar",
+                        options=[
+                            {"label": "NO₂", "value": "NO2"},
+                            {"label": "PM2.5", "value": "PM2.5"},
+                            {"label": "PM10", "value": "PM10"},
+                            {"label": "O₃", "value": "O3"},
+                            {"label": "SO₂", "value": "SO2"},
+                        ],
                     ),
                 ],
             ),
@@ -132,7 +144,9 @@ def create_sidebar():
                         id='year_drop',
                         multi=True,
                         placeholder='Choose years',
-                        options=[],
+                        value=[2011, 2012, 2014],
+                        options=[2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020,
+                                 2021, 2022, 2023, 2024, 2025],
                         className='dropdown-sidebar',
                     ),
                 ],
@@ -167,6 +181,8 @@ def create_sidebar():
                             dcc.DatePickerRange(
                                 id="date_range",
                                 display_format="DD MMM YYYY",
+                                start_date="2026-03-01",
+                                end_date="2026-03-04",
                                 start_date_placeholder_text="Start",
                                 end_date_placeholder_text="End",
                                 className="dropdown-sidebar",
