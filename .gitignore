@@ -28,3 +28,6 @@ data/*.RData
 data/live_air_quality.parquet
 __pycache__/
 *.pyc
+
+# Cache files for Gemini insights
+data/insights_cache/*.json
