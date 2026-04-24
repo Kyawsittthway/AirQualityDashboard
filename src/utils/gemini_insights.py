@@ -6,14 +6,14 @@ from datetime import datetime, timedelta
 
 client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
+
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 CACHE_DIR = os.path.join(BASE_DIR, "data", "insights_cache")
 CACHE_FILE = os.path.join(CACHE_DIR, "forecast_insights.json")
 os.makedirs(CACHE_DIR, exist_ok=True)
 
 
-POLL_LABELS = {"NO2": "NO₂", "O3": "O₃",
-               "SO2": "SO₂", "PM10": "PM10", "PM2.5": "PM2.5"}
+POLL_LABELS = {"NO2": "NO₂", "O3": "O₃", "SO2": "SO₂", "PM10": "PM10", "PM2.5": "PM2.5"}
 
 
 def load_cache():
@@ -29,7 +29,9 @@ def save_cache(cache):
         json.dump(cache, f)
 
 
-def generate_forecast_insight(site: str, forecast: list[dict], measured: list[str]) -> str:
+def generate_forecast_insight(
+    site: str, forecast: list[dict], measured: list[str]
+) -> str:
     cache = load_cache()
     current_day = str(datetime.now().date())
     cache_key = f"{site}_{current_day}"
@@ -45,7 +47,8 @@ def generate_forecast_insight(site: str, forecast: list[dict], measured: list[st
             p = day["pollutants"]
             poll_parts = ", ".join(
                 f"{POLL_LABELS.get(m, m)}={p[m]['concentration']:.1f}µg/m³"
-                for m in measured if m in p
+                for m in measured
+                if m in p
             )
             days_summary.append(
                 f"{day['date']}: AQI {day['aqi']} ({day['aqi_label']}) — {poll_parts}"
@@ -66,8 +69,8 @@ def generate_forecast_insight(site: str, forecast: list[dict], measured: list[st
 
         try:
             response = client.models.generate_content(
-                model="gemini-3-flash-preview",
-                contents=prompt)
+                model="gemini-3-flash-preview", contents=prompt
+            )
             cache[cache_key] = response.text.strip()
             save_cache(cache)
             return response.text.strip()
