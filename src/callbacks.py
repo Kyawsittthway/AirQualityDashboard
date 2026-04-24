@@ -16,6 +16,7 @@ from dash import (
     ALL,
 )
 from flask import app
+import platform
 import pandas as pd
 import numpy as np
 import statsmodels.api as sm
@@ -37,7 +38,6 @@ from utils.calculations import (
     aqi_category,
     LIMITS,
     POLLUTANT_DISPLAY_NAMES,
-
 )
 from utils.predictor import AQIPredictor, SITE_META
 from utils.weather_utils import get_weather_forecast, get_weather_fallback
@@ -170,15 +170,15 @@ def register_callbacks(app, wales_df, wales_df_long):
 
     def load_history_from_df(wales_df, site, n_days=21):
         cutoff = wales_df["date"].max() - pd.Timedelta(days=n_days)
-        site_df = wales_df[(wales_df["site"] == site) & (
-            wales_df["date"] > cutoff)].copy()
+        site_df = wales_df[
+            (wales_df["site"] == site) & (wales_df["date"] > cutoff)
+        ].copy()
         sdf = site_df.copy()
 
         if sdf.empty:
             return None
         pollutants_filtered = list(active_sites_to_pollutants.get(site, []))
-        cols_to_keep = ["date"] + \
-            [p for p in pollutants_filtered if p in sdf.columns]
+        cols_to_keep = ["date"] + [p for p in pollutants_filtered if p in sdf.columns]
         sdf = sdf[cols_to_keep]
 
         for col in pollutants_filtered:
@@ -196,9 +196,8 @@ def register_callbacks(app, wales_df, wales_df_long):
         # O3 – daily max of 8-hour rolling mean
         if "O3" in pollutants_filtered:
             o3_temp = sdf[["date", "day", "O3"]].sort_values("date").copy()
-            o3_temp["o3_8h"] = (
-                o3_temp.groupby("day")["O3"]
-                .transform(lambda s: s.rolling(8, min_periods=6).mean())
+            o3_temp["o3_8h"] = o3_temp.groupby("day")["O3"].transform(
+                lambda s: s.rolling(8, min_periods=6).mean()
             )
             results["O3"] = o3_temp.groupby("day")["o3_8h"].max()
 
@@ -218,8 +217,7 @@ def register_callbacks(app, wales_df, wales_df_long):
                 lambda x: x.mean() if x.count() >= 18 else np.nan
             )
 
-        daily = pd.DataFrame(results).reset_index().rename(
-            columns={"day": "date"})
+        daily = pd.DataFrame(results).reset_index().rename(columns={"day": "date"})
 
         daily["date"] = pd.to_datetime(daily["date"])
         daily = daily.sort_values("date").reset_index(drop=True)
@@ -232,7 +230,15 @@ def register_callbacks(app, wales_df, wales_df_long):
         return daily
 
     # loading AQI predictor
-    aqi_predictor = AQIPredictor(model_dir=r"src\utils")
+    os_name = platform.system()
+    if os_name == "Windows":
+        aqi_predictor = AQIPredictor(model_dir=r"src\utils")
+    elif os_name == "Linux":
+        aqi_predictor = AQIPredictor(model_dir="src/utils")
+    elif os_name == "Darwin":
+        aqi_predictor = AQIPredictor(model_dir="src/utils")
+    else:
+        aqi_predictor = AQIPredictor(model_dir="src/utils")
 
     @app.callback(
         Output("forecast-store", "data"),
@@ -255,7 +261,12 @@ def register_callbacks(app, wales_df, wales_df_long):
         measured = active_sites_to_pollutants[site]
         try:
             forecast = aqi_predictor.predict(
-                site=site, history=history, weather_fc=weather, start_date=start, pollutants=measured)
+                site=site,
+                history=history,
+                weather_fc=weather,
+                start_date=start,
+                pollutants=measured,
+            )
         except Exception as exc:
             return None, f"Forecast error: {exc}", {"display": "block"}
         for i, day in enumerate(forecast):
@@ -263,12 +274,12 @@ def register_callbacks(app, wales_df, wales_df_long):
         return forecast, "", {"display": "none"}
 
     @app.callback(
-        Output("fc-meta-type",  "children"),
+        Output("fc-meta-type", "children"),
         Output("fc-meta-start", "children"),
-        Output("fc-meta-peak",  "children"),
-        Output("fc-meta-peak",  "style"),
+        Output("fc-meta-peak", "children"),
+        Output("fc-meta-peak", "style"),
         Output("fc-meta-worst", "children"),
-        Output("fc-meta-avg",   "children"),
+        Output("fc-meta-avg", "children"),
         Input("forecast-store", "data"),
         Input("site_drop_forecast", "value"),
     )
@@ -282,15 +293,20 @@ def register_callbacks(app, wales_df, wales_df_long):
         peak = max(aqis)
         avg = round(sum(aqis) / len(aqis), 1)
         poll_avg = {
-            p: sum(d["pollutants"][p]["band"] for d in forecast) / 7
-            for p in pollutants
+            p: sum(d["pollutants"][p]["band"] for d in forecast) / 7 for p in pollutants
         }
         worst = max(poll_avg, key=poll_avg.get)
-        poll_labels = {"NO2": "NO₂", "O3": "O₃",
-                       "SO2": "SO₂", "PM10": "PM10", "PM2.5": "PM2.5"}
+        poll_labels = {
+            "NO2": "NO₂",
+            "O3": "O₃",
+            "SO2": "SO₂",
+            "PM10": "PM10",
+            "PM2.5": "PM2.5",
+        }
         peak_colour = _aqi_colour(peak)
         return (
-            loc_type, start_str,
+            loc_type,
+            start_str,
             f"{peak} – {_aqi_label(peak)}",
             {"color": peak_colour, "fontWeight": "500"},
             poll_labels.get(worst, worst),
@@ -306,8 +322,10 @@ def register_callbacks(app, wales_df, wales_df_long):
         _dow = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
         if not forecast:
             return [
-                html.Div(className="forecast-day-card forecast-day-card--skeleton",
-                         children=[html.Div(d, className="forecast-day-label")])
+                html.Div(
+                    className="forecast-day-card forecast-day-card--skeleton",
+                    children=[html.Div(d, className="forecast-day-label")],
+                )
                 for d in _dow
             ]
 
@@ -323,25 +341,36 @@ def register_callbacks(app, wales_df, wales_df_long):
             # -----------------------
 
             colour = _aqi_colour(aqi)
-            cards.append(html.Div(
-                id={"type": "forecast-day-card", "index": i},
-                className=f"forecast-day-card{' forecast-day-card--active' if i == active_day else ''}",
-                n_clicks=0,
-
-                # ADD TITLE HERE for the hover effect
-                title=confidence_text,
-
-                children=[
-                    html.Div(_dow[dt.dayofweek],
-                             className="forecast-day-label"),
-                    html.Div(f"{dt.day} {dt.strftime('%b')}",
-                             className="forecast-day-date"),
-                    html.Div(str(aqi), className="forecast-day-badge",
-                             style={"background": colour + "22", "color": colour, "borderColor": colour + "55"}),
-                    html.Div(_aqi_label(aqi), className="forecast-day-band-label",
-                             style={"color": colour}),
-                ],
-            ))
+            cards.append(
+                html.Div(
+                    id={"type": "forecast-day-card", "index": i},
+                    className=f"forecast-day-card{' forecast-day-card--active' if i == active_day else ''}",
+                    n_clicks=0,
+                    # ADD TITLE HERE for the hover effect
+                    title=confidence_text,
+                    children=[
+                        html.Div(_dow[dt.dayofweek], className="forecast-day-label"),
+                        html.Div(
+                            f"{dt.day} {dt.strftime('%b')}",
+                            className="forecast-day-date",
+                        ),
+                        html.Div(
+                            str(aqi),
+                            className="forecast-day-badge",
+                            style={
+                                "background": colour + "22",
+                                "color": colour,
+                                "borderColor": colour + "55",
+                            },
+                        ),
+                        html.Div(
+                            _aqi_label(aqi),
+                            className="forecast-day-band-label",
+                            style={"color": colour},
+                        ),
+                    ],
+                )
+            )
         return cards
 
     @app.callback(
@@ -355,20 +384,25 @@ def register_callbacks(app, wales_df, wales_df_long):
         return int(np.argmax(n_clicks_list))
 
     @app.callback(
-        Output("fc-detail-title",  "children"),
-        Output("fc-detail-badge",  "children"),
-        Output("fc-detail-badge",  "style"),
-        Output("fc-detail-body",   "children"),
-        Output("fc-weather-temp",  "children"),
-        Output("fc-weather-ws",    "children"),
-        Output("fc-weather-wd",    "children"),
-        Input("forecast-store",    "data"),
+        Output("fc-detail-title", "children"),
+        Output("fc-detail-badge", "children"),
+        Output("fc-detail-badge", "style"),
+        Output("fc-detail-body", "children"),
+        Output("fc-weather-temp", "children"),
+        Output("fc-weather-ws", "children"),
+        Output("fc-weather-wd", "children"),
+        Input("forecast-store", "data"),
         Input("forecast-active-day", "data"),
-        Input("site_drop_forecast", "value")
+        Input("site_drop_forecast", "value"),
     )
     def update_forecast_detail(forecast, active_day, forecast_site):
-        poll_labels = {"NO2": "NO₂", "O3": "O₃",
-                       "SO2": "SO₂", "PM10": "PM10", "PM2.5": "PM2.5"}
+        poll_labels = {
+            "NO2": "NO₂",
+            "O3": "O₃",
+            "SO2": "SO₂",
+            "PM10": "PM10",
+            "PM2.5": "PM2.5",
+        }
 
         poll_max = {"NO2": 120, "O3": 160, "SO2": 200, "PM10": 80, "PM2.5": 50}
         if not forecast:
@@ -385,29 +419,42 @@ def register_callbacks(app, wales_df, wales_df_long):
             band = info["band"]
             bc = _aqi_colour(band)
             pct = min(100, round(val / poll_max.get(p, 100) * 100))
-            rows.append(html.Div(className="forecast-poll-row", children=[
-                html.Span(poll_labels[p], className="forecast-poll-name"),
-                html.Div(className="forecast-poll-bar-wrap", children=[
-                    html.Div(className="forecast-poll-bar",
-                             style={"width": f"{pct}%", "background": bc}),
-                ]),
-                html.Span(f"{val:.1f} µg/m³", className="forecast-poll-val"),
-                html.Span(str(band), className="forecast-poll-band",
-                          style={"background": bc + "22", "color": bc}),
-            ]))
+            rows.append(
+                html.Div(
+                    className="forecast-poll-row",
+                    children=[
+                        html.Span(poll_labels[p], className="forecast-poll-name"),
+                        html.Div(
+                            className="forecast-poll-bar-wrap",
+                            children=[
+                                html.Div(
+                                    className="forecast-poll-bar",
+                                    style={"width": f"{pct}%", "background": bc},
+                                ),
+                            ],
+                        ),
+                        html.Span(f"{val:.1f} µg/m³", className="forecast-poll-val"),
+                        html.Span(
+                            str(band),
+                            className="forecast-poll-band",
+                            style={"background": bc + "22", "color": bc},
+                        ),
+                    ],
+                )
+            )
         w = day.get("weather", {})
         return (
             f"{dt.strftime('%A')} {dt.day} {dt.strftime('%B')}",
             f"AQI {aqi} – {_aqi_label(aqi)}",
-            {"background": colour + "22", "color": colour,
-                "border": f"1px solid {colour}55"},
+            {
+                "background": colour + "22",
+                "color": colour,
+                "border": f"1px solid {colour}55",
+            },
             rows,
-            f"{w['temp']:.1f} °C" if isinstance(
-                w.get("temp"),   (int, float)) else "—",
-            f"{w['ws']:.1f} m/s" if isinstance(w.get("ws"),
-                                               (int, float)) else "—",
-            f"{w['wd_deg']:.0f}°" if isinstance(
-                w.get("wd_deg"), (int, float)) else "—",
+            f"{w['temp']:.1f} °C" if isinstance(w.get("temp"), (int, float)) else "—",
+            f"{w['ws']:.1f} m/s" if isinstance(w.get("ws"), (int, float)) else "—",
+            f"{w['wd_deg']:.0f}°" if isinstance(w.get("wd_deg"), (int, float)) else "—",
         )
 
     @app.callback(
@@ -429,56 +476,88 @@ def register_callbacks(app, wales_df, wales_df_long):
         fig = go.Figure()
 
         # 1. Background AQI Rectangles
-        for lo, hi, col in [(1, 3, "#4caf7d"), (4, 6, "#e0a920"), (7, 9, "#e05a20"), (10, 10, "#c93030")]:
-            fig.add_hrect(y0=lo-0.5, y1=hi+0.5, fillcolor=col,
-                          opacity=0.04, line_width=0)
+        for lo, hi, col in [
+            (1, 3, "#4caf7d"),
+            (4, 6, "#e0a920"),
+            (7, 9, "#e05a20"),
+            (10, 10, "#c93030"),
+        ]:
+            fig.add_hrect(
+                y0=lo - 0.5, y1=hi + 0.5, fillcolor=col, opacity=0.04, line_width=0
+            )
 
         # 2. Add the Uncertainty Band (The shaded area)
         # the top line (invisible)
-        fig.add_trace(go.Scatter(
-            x=dates, y=upper_bounds,
-            line=dict(width=0),
-            hoverinfo='skip',
-            showlegend=False,
-            name='Upper Bound'
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=dates,
+                y=upper_bounds,
+                line=dict(width=0),
+                hoverinfo="skip",
+                showlegend=False,
+                name="Upper Bound",
+            )
+        )
         # the bottom line with the fill
-        fig.add_trace(go.Scatter(
-            x=dates, y=lower_bounds,
-            fill='tonexty',
-            fillcolor='rgba(255, 255, 255, 0.07)',
-            line=dict(width=0),
-            hoverinfo='skip',
-            showlegend=False,
-            name='Uncertainty (±1 AQI)'
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=dates,
+                y=lower_bounds,
+                fill="tonexty",
+                fillcolor="rgba(255, 255, 255, 0.07)",
+                line=dict(width=0),
+                hoverinfo="skip",
+                showlegend=False,
+                name="Uncertainty (±1 AQI)",
+            )
+        )
 
         # 3. The Main Forecast Line
-        fig.add_trace(go.Scatter(
-            x=dates, y=aqis, mode="lines+markers",
-            line=dict(color="#829a67", width=2),
-            marker=dict(
-                size=[14 if i == active_day else 8 for i in range(7)],
-                color=colours, line=dict(color="#1a1f2e", width=2),
-            ),
-            hovertemplate="%{x|%a %e %b}<br>Predicted AQI: %{y}<br>Range: ±1 Index<extra></extra>",
-            showlegend=False,
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=dates,
+                y=aqis,
+                mode="lines+markers",
+                line=dict(color="#829a67", width=2),
+                marker=dict(
+                    size=[14 if i == active_day else 8 for i in range(7)],
+                    color=colours,
+                    line=dict(color="#1a1f2e", width=2),
+                ),
+                hovertemplate="%{x|%a %e %b}<br>Predicted AQI: %{y}<br>Range: ±1 Index<extra></extra>",
+                showlegend=False,
+            )
+        )
 
         # 4. Active Day Vertical Line
-        fig.add_vline(x=dates[active_day], line_dash="dot",
-                      line_color="#829a67", line_width=1, opacity=0.5)
+        fig.add_vline(
+            x=dates[active_day],
+            line_dash="dot",
+            line_color="#829a67",
+            line_width=1,
+            opacity=0.5,
+        )
 
         fig.update_layout(
-            template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-            height=320, margin=dict(l=30, r=20, t=20, b=30),
-            xaxis=dict(showgrid=False, tickformat="%a",
-                       tickfont=dict(family="Inter, sans-serif", size=12, color="#acb5c0")),
-            yaxis=dict(title="AQI band", range=[0.5, 10.5], dtick=1, showgrid=True,
-                       gridcolor="rgba(255,255,255,0.05)",
-                       tickfont=dict(family="Inter, sans-serif",
-                                     size=11, color="#acb5c0"),
-                       title_font=dict(family="Inter, sans-serif", size=12, color="#acb5c0")),
+            template="plotly_dark",
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            height=320,
+            margin=dict(l=30, r=20, t=20, b=30),
+            xaxis=dict(
+                showgrid=False,
+                tickformat="%a",
+                tickfont=dict(family="Inter, sans-serif", size=12, color="#acb5c0"),
+            ),
+            yaxis=dict(
+                title="AQI band",
+                range=[0.5, 10.5],
+                dtick=1,
+                showgrid=True,
+                gridcolor="rgba(255,255,255,0.05)",
+                tickfont=dict(family="Inter, sans-serif", size=11, color="#acb5c0"),
+                title_font=dict(family="Inter, sans-serif", size=12, color="#acb5c0"),
+            ),
         )
 
         return fig
@@ -486,36 +565,53 @@ def register_callbacks(app, wales_df, wales_df_long):
     @app.callback(
         Output("forecast-poll-chart", "figure"),
         Input("forecast-store", "data"),
-        Input("pol_drop", "value")
+        Input("pol_drop", "value"),
     )
     def update_forecast_poll_chart(forecast, pollutant):
 
-        poll_labels = {"NO2": "NO₂", "O3": "O₃",
-                       "SO2": "SO₂", "PM10": "PM10", "PM2.5": "PM2.5"}
+        poll_labels = {
+            "NO2": "NO₂",
+            "O3": "O₃",
+            "SO2": "SO₂",
+            "PM10": "PM10",
+            "PM2.5": "PM2.5",
+        }
         if not forecast or not pollutant:
             return empty_dark_figure("Select a site and pollutant")
         dates = [pd.to_datetime(d["date"]) for d in forecast]
         vals = [d["pollutants"][pollutant]["concentration"] for d in forecast]
-        colours = [_aqi_colour(d["pollutants"][pollutant]["band"])
-                   for d in forecast]
+        colours = [_aqi_colour(d["pollutants"][pollutant]["band"]) for d in forecast]
         fig = go.Figure()
-        fig.add_trace(go.Bar(
-            x=dates, y=vals, marker_color=colours,
-            marker_line_color="rgba(0,0,0,0)",
-            hovertemplate="%{x|%a %e %b}<br>" +
-            poll_labels[pollutant] + ": %{y:.1f} µg/m³<extra></extra>",
-            showlegend=False,
-        ))
+        fig.add_trace(
+            go.Bar(
+                x=dates,
+                y=vals,
+                marker_color=colours,
+                marker_line_color="rgba(0,0,0,0)",
+                hovertemplate="%{x|%a %e %b}<br>"
+                + poll_labels[pollutant]
+                + ": %{y:.1f} µg/m³<extra></extra>",
+                showlegend=False,
+            )
+        )
         fig.update_layout(
-            template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-            height=300, margin=dict(l=40, r=20, t=10, b=30),
-            xaxis=dict(showgrid=False, tickformat="%a",
-                       tickfont=dict(family="Inter, sans-serif", size=12, color="#acb5c0")),
-            yaxis=dict(title=f"{poll_labels[pollutant]} (µg/m³)", showgrid=True,
-                       gridcolor="rgba(255,255,255,0.05)",
-                       tickfont=dict(family="Inter, sans-serif",
-                                     size=11, color="#acb5c0"),
-                       title_font=dict(family="Inter, sans-serif", size=12, color="#acb5c0")),
+            template="plotly_dark",
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            height=300,
+            margin=dict(l=40, r=20, t=10, b=30),
+            xaxis=dict(
+                showgrid=False,
+                tickformat="%a",
+                tickfont=dict(family="Inter, sans-serif", size=12, color="#acb5c0"),
+            ),
+            yaxis=dict(
+                title=f"{poll_labels[pollutant]} (µg/m³)",
+                showgrid=True,
+                gridcolor="rgba(255,255,255,0.05)",
+                tickfont=dict(family="Inter, sans-serif", size=11, color="#acb5c0"),
+                title_font=dict(family="Inter, sans-serif", size=12, color="#acb5c0"),
+            ),
             bargap=0.35,
         )
         return fig
@@ -525,8 +621,9 @@ def register_callbacks(app, wales_df, wales_df_long):
     site_to_pollutants = (
         wales_df_long.groupby("site")["pollutants"].apply(set).to_dict()
     )
-    pollutants_filtered = wales_df_long[wales_df_long["date"] > pd.to_datetime(
-        "2026-02-25")]
+    pollutants_filtered = wales_df_long[
+        wales_df_long["date"] > pd.to_datetime("2026-02-25")
+    ]
     active_sites_to_pollutants = (
         pollutants_filtered.groupby("site")["pollutants"].apply(set).to_dict()
     )
@@ -552,22 +649,20 @@ def register_callbacks(app, wales_df, wales_df_long):
         .to_dict()
     )
 
-    pol_to_sites = wales_df_long.groupby(
-        "pollutants")["site"].apply(set).to_dict()
-    valid_rows = wales_df_long.dropna(subset=['value']).copy()
+    pol_to_sites = wales_df_long.groupby("pollutants")["site"].apply(set).to_dict()
+    valid_rows = wales_df_long.dropna(subset=["value"]).copy()
 
     # get the available years for each site
-    site_to_years = (valid_rows.groupby('site')['year'].apply(set).to_dict())
+    site_to_years = valid_rows.groupby("site")["year"].apply(set).to_dict()
     # get available years for each pollutant
-    pollutant_to_years = (valid_rows.groupby('pollutants')[
-                          'year'].apply(set).to_dict())
+    pollutant_to_years = valid_rows.groupby("pollutants")["year"].apply(set).to_dict()
     # get available years for each site and pollutant combo
-    site_pollutant_to_years = (valid_rows.groupby(
-        ['site', 'pollutants'])['year'].apply(set).to_dict())
+    site_pollutant_to_years = (
+        valid_rows.groupby(["site", "pollutants"])["year"].apply(set).to_dict()
+    )
 
     # get all the unique sites and pollutants from the dataset
-    all_years = sorted(
-        y for y in valid_rows['year'].dropna().unique() if y < 2026)
+    all_years = sorted(y for y in valid_rows["year"].dropna().unique() if y < 2026)
     all_sites = sorted(wales_df_long["site"].unique())
     all_pollutants = sorted(wales_df_long["pollutants"].unique())
 
@@ -623,10 +718,10 @@ def register_callbacks(app, wales_df, wales_df_long):
         return value
 
     @app.callback(
-        Output('year_drop', 'options'),
-        Input('site_drop', 'value'),
-        Input('pol_drop', 'value'),
-        State('year_drop', 'value')
+        Output("year_drop", "options"),
+        Input("site_drop", "value"),
+        Input("pol_drop", "value"),
+        State("year_drop", "value"),
     )
     def update_year(sites, pollutant, current_years):
         # if nothing is selected then use empty lists
@@ -639,31 +734,32 @@ def register_callbacks(app, wales_df, wales_df_long):
             valid = all_years
         # if sites but no pollutant are chosen show all years common to those sites
         elif sites and not pollutant:
-            sites_pol = [site_to_years.get(s, set())for s in sites]
+            sites_pol = [site_to_years.get(s, set()) for s in sites]
             valid = sorted(set.intersection(*sites_pol)) if sites_pol else []
         # if pollutant but no sites selected then show all years common for that pollutant
         elif not sites and pollutant:
             valid = sorted(pollutant_to_years.get(pollutant, set()))
         # if both site and pollutant chosen then just show the years that match both
         else:
-            sites_pol = [site_pollutant_to_years.get(
-                (s, pollutant), set()) for s in sites]
+            sites_pol = [
+                site_pollutant_to_years.get((s, pollutant), set()) for s in sites
+            ]
             valid = sorted(set.intersection(*sites_pol)) if sites_pol else []
         # keep the years already chosen in the dropdown
         if current_years:
             valid = sorted(set(valid) | set(current_years))
-        return [{'label': y, 'value': y} for y in valid if y < 2026]
+        return [{"label": y, "value": y} for y in valid if y < 2026]
 
     @app.callback(
-        Output('exceedance_chart_container', 'children'),
-        Input('site_drop', 'value'),
-        Input('pol_drop', 'value'),
-        Input('year_drop', 'value'),
-        Input('threshold-store', 'data')
+        Output("exceedance_chart_container", "children"),
+        Input("site_drop", "value"),
+        Input("pol_drop", "value"),
+        Input("year_drop", "value"),
+        Input("threshold-store", "data"),
     )
     def exceedance_bar(selected_sites, pollutant, selected_years, threshold_standard):
         # check if who limits selected
-        who_toggle = threshold_standard == 'WHO'
+        who_toggle = threshold_standard == "WHO"
         # if no selection is made tell the user to select
         if not selected_sites or not pollutant or not selected_years:
             return html.Div(
@@ -679,16 +775,15 @@ def register_callbacks(app, wales_df, wales_df_long):
         if isinstance(selected_sites, str):
             selected_sites = [selected_sites]
         results_data = exceedance_data[
-            (exceedance_data['Site'].isin(selected_sites)) &
-            (exceedance_data['pollutant'] == pollutant) &
-            (exceedance_data['Year'].isin(selected_years))
+            (exceedance_data["Site"].isin(selected_sites))
+            & (exceedance_data["pollutant"] == pollutant)
+            & (exceedance_data["Year"].isin(selected_years))
         ].copy()
         if results_data.empty:
             return html.Div(
                 className="empty-panel",
                 children=[
-                    html.Div("No data available",
-                             className="empty-panel-title"),
+                    html.Div("No data available", className="empty-panel-title"),
                     html.Div(
                         "No exceedance data was available for the selected filters.",
                         className="empty-panel-text",
@@ -697,118 +792,110 @@ def register_callbacks(app, wales_df, wales_df_long):
             )
         # choose the correct columns based on uk or who limits
         if who_toggle:
-            results_data['Value'] = results_data['who_value']
-            results_data['Limit'] = results_data['who_limit']
-            results_data['exceeds'] = results_data['who_exceeds']
+            results_data["Value"] = results_data["who_value"]
+            results_data["Limit"] = results_data["who_limit"]
+            results_data["exceeds"] = results_data["who_exceeds"]
         else:
-            results_data['Value'] = results_data['uk_value']
-            results_data['Limit'] = results_data['uk_limit']
-            results_data['exceeds'] = results_data['uk_exceeds']
+            results_data["Value"] = results_data["uk_value"]
+            results_data["Limit"] = results_data["uk_limit"]
+            results_data["exceeds"] = results_data["uk_exceeds"]
         fig = go.Figure()
-        results_data = results_data.sort_values(
-            ['Site', 'Year']).reset_index(drop=True)
+        results_data = results_data.sort_values(["Site", "Year"]).reset_index(drop=True)
         # use both site and year on the axis
-        x_axis = [results_data['Site'], results_data['Year_str']]
-        colours = ['red' if exceeds_limit == 'Above' else 'green' if exceeds_limit ==
-                   'Within' else 'grey' for exceeds_limit in results_data['exceeds']]
+        x_axis = [results_data["Site"], results_data["Year_str"]]
+        colours = [
+            (
+                "red"
+                if exceeds_limit == "Above"
+                else "green" if exceeds_limit == "Within" else "grey"
+            )
+            for exceeds_limit in results_data["exceeds"]
+        ]
         # show 0 label when value is 0 as its hard to see
-        results_data['label'] = results_data['Value'].apply(
-            lambda x: '0' if x == 0 else ''
+        results_data["label"] = results_data["Value"].apply(
+            lambda x: "0" if x == 0 else ""
         )
-        results_data['hover_label'] = results_data['Value'].astype(str)
+        results_data["hover_label"] = results_data["Value"].astype(str)
         trace = go.Bar(
             x=x_axis,
-            y=results_data['Value'],
+            y=results_data["Value"],
             marker_color=colours,
-            text=results_data['label'],
-            textposition='outside',
-            hovertext=results_data['hover_label'],
-            hovertemplate='Site: %{x[0]}<br>Year: %{x[1]}<br>Value:%{hovertext}<extra></extra>')
+            text=results_data["label"],
+            textposition="outside",
+            hovertext=results_data["hover_label"],
+            hovertemplate="Site: %{x[0]}<br>Year: %{x[1]}<br>Value:%{hovertext}<extra></extra>",
+        )
         trace.showlegend = False  # dont print the legend out for each individual trace
         fig.add_trace(trace)
         # add legends to state what the colours mean
         # fig.update_layout(hovermode='closest')
-        fig.add_trace(go.Bar(
-            x=[None], y=[None],
-            marker_color='red',
-            name='Above Limit'
-        ))
-        fig.add_trace(go.Bar(
-            x=[None], y=[None],
-            marker_color='green',
-            name='Within Limit'
-        ))
-        fig.add_trace(go.Scatter(
-            x=[None], y=[None],
-            mode='lines',
-            line=dict(color='red', dash='dash'),
-            name='Limit'
-        ))
+        fig.add_trace(
+            go.Bar(x=[None], y=[None], marker_color="red", name="Above Limit")
+        )
+        fig.add_trace(
+            go.Bar(x=[None], y=[None], marker_color="green", name="Within Limit")
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=[None],
+                y=[None],
+                mode="lines",
+                line=dict(color="red", dash="dash"),
+                name="Limit",
+            )
+        )
         # put the y axis labels for each pollutant which vary depending on which one is selected
         pollutant_labels_uk = {
-            "PM2.5": 'PM2.5 annual mean (µg/m³)',
+            "PM2.5": "PM2.5 annual mean (µg/m³)",
             "PM10": f'PM10 days exceeding {LIMITS["UK"]["PM10"]["daily"]}(µg/m³)',
             "NO2": f'NO2 hours exceeding {LIMITS["UK"]["NO2"]["hourly"]}(µg/m³)',
             "SO2": f'SO2 days exceeding {LIMITS["UK"]["SO2"]["daily"]}(µg/m³)',
-            "O3": f'O3 days exceeding {LIMITS["UK"]["O3"]["8h"]}(µg/m³)'
+            "O3": f'O3 days exceeding {LIMITS["UK"]["O3"]["8h"]}(µg/m³)',
         }
         pollutant_labels_who = {
-            "PM2.5": 'PM2.5 annual mean (µg/m³)',
-            "PM10": 'PM10 annual mean (µg/m³)',
-            "NO2": 'NO2 annual mean(µg/m³)',
+            "PM2.5": "PM2.5 annual mean (µg/m³)",
+            "PM10": "PM10 annual mean (µg/m³)",
+            "NO2": "NO2 annual mean(µg/m³)",
             "SO2": f'SO2 days exceeding {LIMITS["WHO"]["SO2"]["daily"]}(µg/m³)',
-            "O3": 'O3 seasonal peak mean(6 months) (µg/m³)'
+            "O3": "O3 seasonal peak mean(6 months) (µg/m³)",
         }
         # choose correct y axis label depending on toggle
         if who_toggle:
-            y_label = pollutant_labels_who.get(pollutant, 'Value')
+            y_label = pollutant_labels_who.get(pollutant, "Value")
         else:
-            y_label = pollutant_labels_uk.get(pollutant, 'Value')
+            y_label = pollutant_labels_uk.get(pollutant, "Value")
 
         fig.update_layout(
-            title=f'{pollutant} Exceedance for Selected Sites',
-            barmode='group',  # want a bar for each year
+            title=f"{pollutant} Exceedance for Selected Sites",
+            barmode="group",  # want a bar for each year
             yaxis_title=y_label,
-
-            template='plotly_dark',
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-
-
-            font=dict(
-                family="Inter, sans-serif",
-                size=12,
-                color="#acb5c0"
-            ),
-
+            template="plotly_dark",
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(family="Inter, sans-serif", size=12, color="#acb5c0"),
             legend=dict(
-                bgcolor='rgba(0,0,0,0)',
-                font=dict(color="#acb5c0"),
-                title=None
-            ))
+                bgcolor="rgba(0,0,0,0)", font=dict(color="#acb5c0"), title=None
+            ),
+        )
         fig.update_xaxes(
             showgrid=False,
             zeroline=False,
             tickfont=dict(color="#acb5c0"),
-            title_font=dict(color="#acb5c0")
+            title_font=dict(color="#acb5c0"),
         )
 
         fig.update_yaxes(
             showgrid=True,
-            gridcolor='rgba(255,255,255,0.12)',
+            gridcolor="rgba(255,255,255,0.12)",
             zeroline=False,
             tickfont=dict(color="#acb5c0"),
-            title_font=dict(color="#acb5c0")
+            title_font=dict(color="#acb5c0"),
         )
-        unique_limits = results_data['Limit'].dropna().unique()
+        unique_limits = results_data["Limit"].dropna().unique()
         if len(unique_limits) == 1 and unique_limits[0] != 0:
-            fig.add_hline(
-                y=unique_limits[0],
-                line_dash='dash',
-                line_color='red'
-            )
+            fig.add_hline(y=unique_limits[0], line_dash="dash", line_color="red")
         return dcc.Graph(
-            id='exceedance_chart',
+            id="exceedance_chart",
             figure=fig,
             style={"backgroundColor": "transparent"},
             config={
@@ -821,8 +908,8 @@ def register_callbacks(app, wales_df, wales_df_long):
     @app.callback(
         Output("nav-home", "className"),
         Output("nav-comparison", "className"),
-        Output('nav-exceedance', 'className'),
-        Output("nav-forecast",   "className"),
+        Output("nav-exceedance", "className"),
+        Output("nav-forecast", "className"),
         Input("url", "pathname"),
     )
     def highlight_nav(pathname):
@@ -890,8 +977,11 @@ def register_callbacks(app, wales_df, wales_df_long):
             dff = dff[dff["date"] >= pd.to_datetime(start_date)]
 
         if end_date:
-            end_dt = pd.to_datetime(
-                end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+            end_dt = (
+                pd.to_datetime(end_date)
+                + pd.Timedelta(days=1)
+                - pd.Timedelta(seconds=1)
+            )
             dff = dff[dff["date"] <= end_dt]
 
         return dff.sort_values("date")
@@ -965,7 +1055,12 @@ def register_callbacks(app, wales_df, wales_df_long):
         threshold_standard=None,
         units="µg/m³",
     ):
-        if value is None or pd.isna(value) or threshold_value is None or pd.isna(threshold_value):
+        if (
+            value is None
+            or pd.isna(value)
+            or threshold_value is None
+            or pd.isna(threshold_value)
+        ):
             return "No threshold available"
 
         diff = value - threshold_value
@@ -1019,9 +1114,7 @@ def register_callbacks(app, wales_df, wales_df_long):
         lines = []
         for site, val in series.items():
             if threshold_value is None or pd.isna(val):
-                lines.append(
-                    html.Div(f"{site}: --", className="kpi-site-line")
-                )
+                lines.append(html.Div(f"{site}: --", className="kpi-site-line"))
                 continue
 
             if val > threshold_value:
@@ -1102,28 +1195,11 @@ def register_callbacks(app, wales_df, wales_df_long):
         fig.update_layout(
             title=f"{pollutant_label} Concentration ({start_str} – {end_str})",
             height=360,
-
-            title_font=dict(
-                family="Inter, sans-serif",
-                size=16,
-                color="#d1e0c2"
-            ),
-
+            title_font=dict(family="Inter, sans-serif", size=16, color="#d1e0c2"),
             xaxis_title="Date",
             yaxis_title=f"{pollutant_label} (µg/m³)",
-
-            xaxis_title_font=dict(
-                family="Inter, sans-serif",
-                size=13,
-                color="#acb5c0"
-            ),
-
-            yaxis_title_font=dict(
-                family="Inter, sans-serif",
-                size=13,
-                color="#acb5c0"
-            ),
-
+            xaxis_title_font=dict(family="Inter, sans-serif", size=13, color="#acb5c0"),
+            yaxis_title_font=dict(family="Inter, sans-serif", size=13, color="#acb5c0"),
             template="plotly_dark",
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
@@ -1165,28 +1241,11 @@ def register_callbacks(app, wales_df, wales_df_long):
 
         fig.update_layout(
             height=360,
-
-            title_font=dict(
-                family="Inter, sans-serif",
-                size=16,
-                color="#829a67"
-            ),
-
+            title_font=dict(family="Inter, sans-serif", size=16, color="#829a67"),
             xaxis_title="Date",
             yaxis_title=f"{pollutant_label} (µg/m³)",
-
-            xaxis_title_font=dict(
-                family="Inter, sans-serif",
-                size=13,
-                color="#acb5c0"
-            ),
-
-            yaxis_title_font=dict(
-                family="Inter, sans-serif",
-                size=13,
-                color="#acb5c0"
-            ),
-
+            xaxis_title_font=dict(family="Inter, sans-serif", size=13, color="#acb5c0"),
+            yaxis_title_font=dict(family="Inter, sans-serif", size=13, color="#acb5c0"),
             template="plotly_dark",
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
@@ -1219,28 +1278,11 @@ def register_callbacks(app, wales_df, wales_df_long):
 
         fig.update_layout(
             height=360,
-
-            title_font=dict(
-                family="Inter, sans-serif",
-                size=16,
-                color="#d1e0c2"
-            ),
-
+            title_font=dict(family="Inter, sans-serif", size=16, color="#d1e0c2"),
             xaxis_title=x_title,
             yaxis_title=f"{pollutant_label} (µg/m³)",
-
-            xaxis_title_font=dict(
-                family="Inter, sans-serif",
-                size=13,
-                color="#acb5c0"
-            ),
-
-            yaxis_title_font=dict(
-                family="Inter, sans-serif",
-                size=13,
-                color="#acb5c0"
-            ),
-
+            xaxis_title_font=dict(family="Inter, sans-serif", size=13, color="#acb5c0"),
+            yaxis_title_font=dict(family="Inter, sans-serif", size=13, color="#acb5c0"),
             template="plotly_dark",
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
@@ -1346,8 +1388,13 @@ def register_callbacks(app, wales_df, wales_df_long):
 
         elif days <= 45:
             weekday_order = [
-                "Monday", "Tuesday", "Wednesday", "Thursday",
-                "Friday", "Saturday", "Sunday"
+                "Monday",
+                "Tuesday",
+                "Wednesday",
+                "Thursday",
+                "Friday",
+                "Saturday",
+                "Sunday",
             ]
 
             temp["weekday"] = temp["date"].dt.day_name()
@@ -1384,8 +1431,18 @@ def register_callbacks(app, wales_df, wales_df_long):
 
         else:
             month_order = [
-                "January", "February", "March", "April", "May", "June",
-                "July", "August", "September", "October", "November", "December"
+                "January",
+                "February",
+                "March",
+                "April",
+                "May",
+                "June",
+                "July",
+                "August",
+                "September",
+                "October",
+                "November",
+                "December",
             ]
 
             temp["month"] = temp["date"].dt.month_name()
@@ -1429,11 +1486,13 @@ def register_callbacks(app, wales_df, wales_df_long):
 
         for site, site_df in dff.groupby("site"):
             if site_df.empty:
-                results.append({
-                    "site": site,
-                    "value": 0,
-                    "label": "No data available",
-                })
+                results.append(
+                    {
+                        "site": site,
+                        "value": 0,
+                        "label": "No data available",
+                    }
+                )
                 continue
 
             site_wide = (
@@ -1445,11 +1504,13 @@ def register_callbacks(app, wales_df, wales_df_long):
             )
 
             if pollutant not in site_wide.columns:
-                results.append({
-                    "site": site,
-                    "value": 0,
-                    "label": "No data available",
-                })
+                results.append(
+                    {
+                        "site": site,
+                        "value": 0,
+                        "label": "No data available",
+                    }
+                )
                 continue
 
             exceedance_info = calculate_exceedance(
@@ -1458,11 +1519,13 @@ def register_callbacks(app, wales_df, wales_df_long):
                 threshold_standard,
             )
 
-            results.append({
-                "site": site,
-                "value": exceedance_info["value"],
-                "label": exceedance_info["label"],
-            })
+            results.append(
+                {
+                    "site": site,
+                    "value": exceedance_info["value"],
+                    "label": exceedance_info["label"],
+                }
+            )
 
         return sorted(results, key=lambda x: str(x["site"]))
 
@@ -1476,7 +1539,11 @@ def register_callbacks(app, wales_df, wales_df_long):
     def update_gemini_insight(store, site):
         forecast = unpack_store(store)
         measured = list(active_sites_to_pollutants.get(site, []))
-        if isinstance(forecast, list) and len(forecast) > 0 and isinstance(forecast[0], list):
+        if (
+            isinstance(forecast, list)
+            and len(forecast) > 0
+            and isinstance(forecast[0], list)
+        ):
             forecast = forecast[0]
         if not forecast or not site:
             return html.P(
@@ -1545,14 +1612,18 @@ def register_callbacks(app, wales_df, wales_df_long):
         Input("date_range", "start_date"),
         Input("date_range", "end_date"),
         State("pol_drop", "value"),
-        Input("site_drop_forecast", "value")
+        Input("site_drop_forecast", "value"),
     )
-    def update_pollutant_dropdown(sites, start_date, end_date, currently_selected, forecast_site):
+    def update_pollutant_dropdown(
+        sites, start_date, end_date, currently_selected, forecast_site
+    ):
         if forecast_site:
-            active_df = wales_df_long[wales_df_long["date"]
-                                      > pd.to_datetime("2026-01-01")]
-            valid_series = active_df[active_df["site"]
-                                     == forecast_site]["pollutants"].unique()
+            active_df = wales_df_long[
+                wales_df_long["date"] > pd.to_datetime("2026-01-01")
+            ]
+            valid_series = active_df[active_df["site"] == forecast_site][
+                "pollutants"
+            ].unique()
             valid = sorted(valid_series.tolist())
 
         elif not forecast_site:
@@ -1563,8 +1634,7 @@ def register_callbacks(app, wales_df, wales_df_long):
             valid = all_pollutants
 
         elif sites and not forecast_site:
-            start_dt = pd.to_datetime(
-                start_date).date() if date_active else None
+            start_dt = pd.to_datetime(start_date).date() if date_active else None
             end_dt = pd.to_datetime(end_date).date() if date_active else None
 
             if not sites:
@@ -1716,10 +1786,15 @@ def register_callbacks(app, wales_df, wales_df_long):
         State("date-store", "data"),
     )
     def manage_date_selection(
-        n_clicks, sites, pollutant,
-        yday, last_week, last_month,
+        n_clicks,
+        sites,
+        pollutant,
+        yday,
+        last_week,
+        last_month,
         dq,
-        start_date, end_date,
+        start_date,
+        end_date,
         stored_dates,
     ):
         triggered = callback_context.triggered_id
@@ -1732,18 +1807,19 @@ def register_callbacks(app, wales_df, wales_df_long):
 
         if triggered == "yday":
             yesterday = today - timedelta(days=1)
-            end = min(yesterday, RATIFIED_CUTOFF.date()
-                      ) if dq == "Ratified" else yesterday
+            end = (
+                min(yesterday, RATIFIED_CUTOFF.date())
+                if dq == "Ratified"
+                else yesterday
+            )
             return yesterday, end
         elif triggered == "last_week":
             start = today - timedelta(days=7)
-            end = min(today, RATIFIED_CUTOFF.date()
-                      ) if dq == "Ratified" else today
+            end = min(today, RATIFIED_CUTOFF.date()) if dq == "Ratified" else today
             return start, end
         elif triggered == "last_month":
             start = today - timedelta(days=30)
-            end = min(today, RATIFIED_CUTOFF.date()
-                      ) if dq == "Ratified" else today
+            end = min(today, RATIFIED_CUTOFF.date()) if dq == "Ratified" else today
             return start, end
 
         min_allowed, max_allowed = compute_allowed_bounds(sites, pollutant)
@@ -1758,10 +1834,9 @@ def register_callbacks(app, wales_df, wales_df_long):
         effective_end = stored_dates["end"] if stored_dates else end_date
 
         if dq == "Ratified" and effective_end:
-            effective_end = str(min(
-                pd.to_datetime(effective_end).date(),
-                RATIFIED_CUTOFF.date()
-            ))
+            effective_end = str(
+                min(pd.to_datetime(effective_end).date(), RATIFIED_CUTOFF.date())
+            )
 
         if not has_full_date_range(effective_start, effective_end):
             return no_update, no_update
@@ -1772,12 +1847,7 @@ def register_callbacks(app, wales_df, wales_df_long):
         except Exception:
             return None, None
 
-        if (
-            cs < min_allowed
-            or cs > max_allowed
-            or ce < min_allowed
-            or ce > max_allowed
-        ):
+        if cs < min_allowed or cs > max_allowed or ce < min_allowed or ce > max_allowed:
             return None, None
 
         return effective_start, effective_end
@@ -1787,12 +1857,12 @@ def register_callbacks(app, wales_df, wales_df_long):
         Output("meta-stations", "children"),
         Output("meta-pollutant", "children"),
         Output("meta-period", "children"),
-        Input("site_drop", "value"),           # Multi-select
+        Input("site_drop", "value"),  # Multi-select
         Input("site_drop_forecast", "value"),  # Single-select
         Input("pol_drop", "value"),
         Input("date_range", "start_date"),
         Input("date_range", "end_date"),
-        Input("url", "pathname")
+        Input("url", "pathname"),
     )
     def update_topbar(sites, forecast_site, pollutant, start, end, pathname):
         # Check if we are currently on the Forecast page
@@ -1808,8 +1878,9 @@ def register_callbacks(app, wales_df, wales_df_long):
             stations_text = str(len(sites)) if sites else "0"
             period_text = format_date_range(start, end)
 
-        pollutant_text = POLLUTANT_DISPLAY_NAMES.get(
-            pollutant, pollutant) if pollutant else "--"
+        pollutant_text = (
+            POLLUTANT_DISPLAY_NAMES.get(pollutant, pollutant) if pollutant else "--"
+        )
 
         return stations_text, pollutant_text, period_text
 
@@ -1818,8 +1889,7 @@ def register_callbacks(app, wales_df, wales_df_long):
         Output("site_drop_forecast", "value", allow_duplicate=True),
         Input("site_drop", "value"),
         Input("site_drop_forecast", "value"),
-        prevent_initial_call=True
-
+        prevent_initial_call=True,
     )
     def sync_dropdowns(main_sites, forecast_site):
         triggered_id = ctx.triggered_id
@@ -1871,8 +1941,9 @@ def register_callbacks(app, wales_df, wales_df_long):
             )
 
         start_dt = pd.to_datetime(start_date)
-        end_dt = pd.to_datetime(end_date) + \
-            pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+        end_dt = (
+            pd.to_datetime(end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+        )
         start_dt, end_dt = apply_dq_cap(start_dt, end_dt, dq)
 
         mask = (
@@ -1897,8 +1968,7 @@ def register_callbacks(app, wales_df, wales_df_long):
         return html.Div(
             dash_table.DataTable(
                 data=summary_df.to_dict("records"),
-                columns=[{"name": col, "id": col}
-                         for col in summary_df.columns],
+                columns=[{"name": col, "id": col} for col in summary_df.columns],
                 sort_action="native",
                 page_size=10,
                 style_table={
@@ -1967,8 +2037,9 @@ def register_callbacks(app, wales_df, wales_df_long):
             return "--", []
 
         start_dt = pd.to_datetime(start_date)
-        end_dt = pd.to_datetime(end_date) + \
-            pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+        end_dt = (
+            pd.to_datetime(end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+        )
         start_dt, end_dt = apply_dq_cap(start_dt, end_dt, dq)
 
         df_filtered = wales_df[
@@ -1980,8 +2051,7 @@ def register_callbacks(app, wales_df, wales_df_long):
         overall = calculate_completeness(df_filtered, pollutant)
         overall_text = f"{overall}%"
 
-        site_results = calculate_completeness_by_site(
-            df_filtered, sites, pollutant)
+        site_results = calculate_completeness_by_site(df_filtered, sites, pollutant)
 
         bars = []
         for result in site_results:
@@ -1989,15 +2059,13 @@ def register_callbacks(app, wales_df, wales_df_long):
                 html.Div(
                     className="completeness-item",
                     children=[
-                        html.Div(result["site"],
-                                 className="completeness-label"),
+                        html.Div(result["site"], className="completeness-label"),
                         html.Div(
                             className="completeness-bar-track",
                             children=[
                                 html.Div(
                                     className=f"completeness-bar-fill status-{result['status']}",
-                                    style={
-                                        "width": f"{result['completeness']}%"},
+                                    style={"width": f"{result['completeness']}%"},
                                 )
                             ],
                         ),
@@ -2030,11 +2098,19 @@ def register_callbacks(app, wales_df, wales_df_long):
         Input("threshold-store", "data"),
         Input("dq_store", "data"),
     )
-    def update_trends(tab, selected_sites, selected_pollutant, start_date, end_date, threshold_standard, dq):
-        '''
-        Updates the trends KPIs, chart, and insights based on the selected tab and filters. 
+    def update_trends(
+        tab,
+        selected_sites,
+        selected_pollutant,
+        start_date,
+        end_date,
+        threshold_standard,
+        dq,
+    ):
+        """
+        Updates the trends KPIs, chart, and insights based on the selected tab and filters.
         Handles data filtering, KPI calculations, chart generation, and insight messaging.
-        '''
+        """
 
         df = wales_df_long.copy()
 
@@ -2078,8 +2154,9 @@ def register_callbacks(app, wales_df, wales_df_long):
                 ),
             )
 
-        dff = filter_df(df, selected_sites, selected_pollutant,
-                        start_date, effective_end_date)
+        dff = filter_df(
+            df, selected_sites, selected_pollutant, start_date, effective_end_date
+        )
 
         if dff.empty:
             warning_text, warning_style = warning_visible(
@@ -2095,8 +2172,7 @@ def register_callbacks(app, wales_df, wales_df_long):
                 html.Div(
                     className="empty-panel",
                     children=[
-                        html.Div("No data available",
-                                 className="empty-panel-title"),
+                        html.Div("No data available", className="empty-panel-title"),
                         html.Div(
                             "Try adjusting the selected site, pollutant, or date range.",
                             className="empty-panel-text",
@@ -2118,9 +2194,11 @@ def register_callbacks(app, wales_df, wales_df_long):
             )
 
         pollutant_label = POLLUTANT_DISPLAY_NAMES.get(
-            selected_pollutant, selected_pollutant)
+            selected_pollutant, selected_pollutant
+        )
         threshold_info = get_threshold_info(
-            selected_pollutant, threshold_standard or "UK")
+            selected_pollutant, threshold_standard or "UK"
+        )
         threshold_value = threshold_info["value"] if threshold_info else None
         threshold_metric = threshold_info["metric"] if threshold_info else None
         selected_standard = threshold_standard or "UK"
@@ -2165,8 +2243,11 @@ def register_callbacks(app, wales_df, wales_df_long):
         peak_time = peak_row["date"].strftime("%Y-%m-%d")
 
         if site_count == 1:
-            exceedance_info = site_exceedance[0] if site_exceedance else {
-                "value": "--", "label": "No data"}
+            exceedance_info = (
+                site_exceedance[0]
+                if site_exceedance
+                else {"value": "--", "label": "No data"}
+            )
 
             avg_value = site_avg.iloc[0]
             max_value = site_max.iloc[0]
@@ -2237,8 +2318,9 @@ def register_callbacks(app, wales_df, wales_df_long):
 
             var_kpi = make_kpi(
                 "Variability",
-                format_site_value_lines(site_std.fillna(
-                    0), decimals=2, suffix=" µg/m³"),
+                format_site_value_lines(
+                    site_std.fillna(0), decimals=2, suffix=" µg/m³"
+                ),
                 "Standard deviation by site",
             )
 
@@ -2266,12 +2348,14 @@ def register_callbacks(app, wales_df, wales_df_long):
             var_kpi,
             warning_text,
             warning_style,
-            dcc.Graph(figure=fig, config={
-                      "displayModeBar": True, "displaylogo": False}),
+            dcc.Graph(
+                figure=fig, config={"displayModeBar": True, "displaylogo": False}
+            ),
             html.Div(
-                html.P([html.Strong("Insights: "), insight],
-                       className="insight-inline"),
-                className="insight-box"
+                html.P(
+                    [html.Strong("Insights: "), insight], className="insight-inline"
+                ),
+                className="insight-box",
             ),
         )
 
@@ -2285,68 +2369,79 @@ def register_callbacks(app, wales_df, wales_df_long):
 
         # filter the dataset based on site, pollutant and date range
         filtered = df[
-            (df['site'].isin(selected_sites)) &
-            (df['pollutants'] == pollutant) &
-            (df['date'] >= pd.to_datetime(start_date)) &
-            (df['date'] <= pd.to_datetime(end_date))].copy()
+            (df["site"].isin(selected_sites))
+            & (df["pollutants"] == pollutant)
+            & (df["date"] >= pd.to_datetime(start_date))
+            & (df["date"] <= pd.to_datetime(end_date))
+        ].copy()
 
         # return an empty figure if no data after filtering
         if filtered.empty:
             return go.Figure()
 
         # convert degrees into compass directions
-        filtered['wind_direction'] = filtered['wd'].apply(degrees_to_direction)
+        filtered["wind_direction"] = filtered["wd"].apply(degrees_to_direction)
         # change pollutant values into aqi index and categories
-        filtered['aqi_index'] = filtered['value'].apply(
-            lambda x: aqi_index(x, pollutant))
-        filtered['aqi_category'] = filtered['aqi_index'].apply(aqi_category)
+        filtered["aqi_index"] = filtered["value"].apply(
+            lambda x: aqi_index(x, pollutant)
+        )
+        filtered["aqi_category"] = filtered["aqi_index"].apply(aqi_category)
         # remove rows with missing wind or aqi categories
-        filtered = filtered.dropna(subset=['wind_direction', 'aqi_category'])
+        filtered = filtered.dropna(subset=["wind_direction", "aqi_category"])
 
         if filtered.empty:
             return go.Figure()
 
         # working out how many times each aqi category occur in each wind direction
         direction_counts = (
-            filtered.groupby(['wind_direction', 'aqi_category']).size().reset_index(name='direction_count'))
+            filtered.groupby(["wind_direction", "aqi_category"])
+            .size()
+            .reset_index(name="direction_count")
+        )
         total_observations = len(filtered)
         # counts to percentages
-        direction_counts['percentage'] = 100 * \
-            direction_counts['direction_count']/total_observations
-        directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
-        categories = ['Low', 'Moderate', 'High', 'Very High']
+        direction_counts["percentage"] = (
+            100 * direction_counts["direction_count"] / total_observations
+        )
+        directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+        categories = ["Low", "Moderate", "High", "Very High"]
         colours = {
-            'Low': 'green',
-            'Moderate': 'yellow',
-            'High': 'orange',
-            'Very High': 'red'
+            "Low": "green",
+            "Moderate": "yellow",
+            "High": "orange",
+            "Very High": "red",
         }
 
         fig = go.Figure()
 
         # one trace per aqi category
         for category in categories:
-            category_data = direction_counts[direction_counts['aqi_category'] == category]
+            category_data = direction_counts[
+                direction_counts["aqi_category"] == category
+            ]
             # all directions present filling missing values with 0
             category_data = (
-                category_data.set_index('wind_direction')['percentage'].reindex(
-                    directions, fill_value=0).reset_index()
+                category_data.set_index("wind_direction")["percentage"]
+                .reindex(directions, fill_value=0)
+                .reset_index()
             )
             # add polar bar trace
-            fig.add_trace(go.Barpolar(
-                r=category_data['percentage'],
-                theta=category_data['wind_direction'],
-                name=category,
-                marker_color=colours[category],
-                marker_line_color="rgba(255,255,255,0.15)",
-                marker_line_width=1,
-                opacity=0.9,
-                hovertemplate=(
-                    "Direction: %{theta}<br>"
-                    "AQI Band: " + category + "<br>"
-                    "Share: %{r:.1f}%<extra></extra>"
-                ),
-            ))
+            fig.add_trace(
+                go.Barpolar(
+                    r=category_data["percentage"],
+                    theta=category_data["wind_direction"],
+                    name=category,
+                    marker_color=colours[category],
+                    marker_line_color="rgba(255,255,255,0.15)",
+                    marker_line_width=1,
+                    opacity=0.9,
+                    hovertemplate=(
+                        "Direction: %{theta}<br>"
+                        "AQI Band: " + category + "<br>"
+                        "Share: %{r:.1f}%<extra></extra>"
+                    ),
+                )
+            )
 
         fig.update_layout(
             title=None,
@@ -2359,8 +2454,8 @@ def register_callbacks(app, wales_df, wales_df_long):
             margin=dict(l=20, r=20, t=20, b=20),
             polar=dict(
                 radialaxis=dict(showticklabels=False),
-                angularaxis=dict(rotation=90, direction='clockwise')
-            )
+                angularaxis=dict(rotation=90, direction="clockwise"),
+            ),
         )
 
         return fig
@@ -2369,7 +2464,7 @@ def register_callbacks(app, wales_df, wales_df_long):
 
     @app.callback(
         Output("pollution_rose_container", "children"),
-        Output("pollution_rose_insights", 'children'),
+        Output("pollution_rose_insights", "children"),
         Input("site_drop", "value"),
         Input("pol_drop", "value"),
         Input("date_range", "start_date"),
@@ -2397,15 +2492,18 @@ def register_callbacks(app, wales_df, wales_df_long):
                 )
             ], html.Div(
                 html.P(
-                    [html.Strong(
-                        "Insights: "), "Select a site, pollutant and date range to generate a pollution rose summary."],
+                    [
+                        html.Strong("Insights: "),
+                        "Select a site, pollutant and date range to generate a pollution rose summary.",
+                    ],
                     className="insight-inline",
                 ),
-                className='insight-box',
+                className="insight-box",
             )
 
-        effective_end = pd.to_datetime(
-            end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+        effective_end = (
+            pd.to_datetime(end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+        )
         if dq == "Ratified":
             effective_end = min(effective_end, RATIFIED_CUTOFF)
 
@@ -2455,8 +2553,7 @@ def register_callbacks(app, wales_df, wales_df_long):
                 content = html.Div(
                     className="empty-panel comparison-site-empty",
                     children=[
-                        html.Div("No data available",
-                                 className="empty-panel-title"),
+                        html.Div("No data available", className="empty-panel-title"),
                         html.Div(
                             f"No valid pollution rose data was available for {site} in the selected period.",
                             className="empty-panel-text",
@@ -2473,10 +2570,10 @@ def register_callbacks(app, wales_df, wales_df_long):
                         html.Div(
                             className="comparison-site-card-header",
                             children=[
+                                html.Div(site, className="comparison-site-title"),
                                 html.Div(
-                                    site, className="comparison-site-title"),
-                                html.Div(
-                                    subtitle, className="comparison-site-subtitle"),
+                                    subtitle, className="comparison-site-subtitle"
+                                ),
                             ],
                         ),
                         content,
@@ -2484,35 +2581,30 @@ def register_callbacks(app, wales_df, wales_df_long):
                 )
             ),
         filtered_all = filter_df(
-            wales_df_long, selected_sites, pollutant, start_date, effective_end).copy()
-        filtered_all['wind_direction'] = filtered_all['wd'].apply(
-            degrees_to_direction)
-        filtered_all['aqi_index'] = filtered_all['value'].apply(
-            lambda x: aqi_index(x, pollutant))
-        filtered_all['aqi_category'] = filtered_all['aqi_index'].apply(
-            aqi_category)
-        filtered_all = filtered_all.dropna(
-            subset=['wind_direction', 'aqi_category'])
+            wales_df_long, selected_sites, pollutant, start_date, effective_end
+        ).copy()
+        filtered_all["wind_direction"] = filtered_all["wd"].apply(degrees_to_direction)
+        filtered_all["aqi_index"] = filtered_all["value"].apply(
+            lambda x: aqi_index(x, pollutant)
+        )
+        filtered_all["aqi_category"] = filtered_all["aqi_index"].apply(aqi_category)
+        filtered_all = filtered_all.dropna(subset=["wind_direction", "aqi_category"])
         if filtered_all.empty:
             insight = "No data available for the selected filters"
         else:
-            mode_aqi = filtered_all['aqi_category'].value_counts().idxmax()
-            wind_direction_counts = filtered_all['wind_direction'].value_counts(
-            )
+            mode_aqi = filtered_all["aqi_category"].value_counts().idxmax()
+            wind_direction_counts = filtered_all["wind_direction"].value_counts()
             mode_direction = wind_direction_counts.idxmax()
-            direction_percentages = (
-                wind_direction_counts/len(filtered_all))*100
+            direction_percentages = (wind_direction_counts / len(filtered_all)) * 100
             dominant_percentage = direction_percentages.max()
-            insight = (f'The most common wind direction for {pollutant} is {mode_direction} which accounts for {dominant_percentage:.1f}% of the observations.'
-                       f'The most common AQI category is {mode_aqi}.')
+            insight = (
+                f"The most common wind direction for {pollutant} is {mode_direction} which accounts for {dominant_percentage:.1f}% of the observations."
+                f"The most common AQI category is {mode_aqi}."
+            )
 
         return graphs, html.Div(
-            html.P(
-                [html.Strong('Insights: '), insight],
-                className='insight-inline'
-            ),
-            className='insight-box'
-
+            html.P([html.Strong("Insights: "), insight], className="insight-inline"),
+            className="insight-box",
         )
 
     @app.callback(
@@ -2526,9 +2618,9 @@ def register_callbacks(app, wales_df, wales_df_long):
         Input("dq_store", "data"),
     )
     def update_temp_scatter(sites, pollutant, start_date, end_date, dq):
-        '''This callback manages the entire temperature relationship panel,
-        including handling missing filters, data availability, 
-        and generating the scatter plot with appropriate annotations and subtitles.'''
+        """This callback manages the entire temperature relationship panel,
+        including handling missing filters, data availability,
+        and generating the scatter plot with appropriate annotations and subtitles."""
 
         if filters_missing(sites, pollutant, start_date, end_date):
             return (
@@ -2542,22 +2634,23 @@ def register_callbacks(app, wales_df, wales_df_long):
                     ],
                 ),
                 "Shows how pollutant concentration varies with temperature across the selected site(s). Colours distinguish sites; relationships should be interpreted within each site.",
-                "Select a site, pollutant and date range to generate a scatter plot summary. "
+                "Select a site, pollutant and date range to generate a scatter plot summary. ",
             )
 
         sites = ensure_list(sites)
 
         start_dt = pd.to_datetime(start_date)
-        end_dt = pd.to_datetime(end_date) + \
-            pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+        end_dt = (
+            pd.to_datetime(end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+        )
 
         if dq == "Ratified":
             end_dt = min(end_dt, RATIFIED_CUTOFF)
 
         dff = wales_df[
-            (wales_df["site"].isin(sites)) &
-            (wales_df["date"] >= start_dt) &
-            (wales_df["date"] <= end_dt)
+            (wales_df["site"].isin(sites))
+            & (wales_df["date"] >= start_dt)
+            & (wales_df["date"] <= end_dt)
         ].copy()
 
         if pollutant not in dff.columns or "temp" not in dff.columns:
@@ -2573,7 +2666,7 @@ def register_callbacks(app, wales_df, wales_df_long):
                     ],
                 ),
                 "Required variables are unavailable for this view.",
-                "No insight available with the current selection. "
+                "No insight available with the current selection. ",
             )
 
         dff = dff.dropna(subset=[pollutant, "temp", "site"])
@@ -2583,8 +2676,7 @@ def register_callbacks(app, wales_df, wales_df_long):
                 html.Div(
                     className="empty-panel",
                     children=[
-                        html.Div("No data available",
-                                 className="empty-panel-title"),
+                        html.Div("No data available", className="empty-panel-title"),
                         html.Div(
                             "No valid observations were found for the selected site, pollutant, and date range.",
                             className="empty-panel-text",
@@ -2592,7 +2684,7 @@ def register_callbacks(app, wales_df, wales_df_long):
                     ],
                 ),
                 "No matching data is available for the current filters.",
-                "No insight available for the current selection. "
+                "No insight available for the current selection. ",
             )
 
         pollutant_label = POLLUTANT_DISPLAY_NAMES.get(pollutant, pollutant)
@@ -2615,8 +2707,9 @@ def register_callbacks(app, wales_df, wales_df_long):
         # Only show correlation annotation for single-site view
         if len(sites) == 1:
             corr_df = dff[["temp", pollutant]].dropna()
-            corr = corr_df["temp"].corr(
-                corr_df[pollutant]) if len(corr_df) >= 2 else None
+            corr = (
+                corr_df["temp"].corr(corr_df[pollutant]) if len(corr_df) >= 2 else None
+            )
             n = len(corr_df)
 
             annotation_text = f"n = {n}"
@@ -2638,20 +2731,16 @@ def register_callbacks(app, wales_df, wales_df_long):
                 ),
             )
 
-            subtitle = (
-                f"Site overview of the relationship between temperature and pollutant concentration. Each point represents an observation, with a fitted trendline to indicate overall direction. Correlation coefficient (r) quantifies the strength and direction of the relationship."
-            )
+            subtitle = f"Site overview of the relationship between temperature and pollutant concentration. Each point represents an observation, with a fitted trendline to indicate overall direction. Correlation coefficient (r) quantifies the strength and direction of the relationship."
 
         else:
             site_counts = (
-                dff.groupby("site")
-                .size()
-                .sort_values(ascending=False)
-                .to_dict()
+                dff.groupby("site").size().sort_values(ascending=False).to_dict()
             )
 
             count_text = " · ".join(
-                [f"{site}: n={count}" for site, count in site_counts.items()])
+                [f"{site}: n={count}" for site, count in site_counts.items()]
+            )
 
             subtitle = (
                 f"Combined overview across {len(sites)} selected sites. "
@@ -2668,9 +2757,7 @@ def register_callbacks(app, wales_df, wales_df_long):
         values = list(site_stats.values())
 
         if len(values) == 0:
-            insight = (
-                f"There is no clear relationship between temperature and {pollutant_label} for the current selection."
-            )
+            insight = f"There is no clear relationship between temperature and {pollutant_label} for the current selection."
         else:
             average_strength = sum(abs(r) for r in values) / len(values)
 
@@ -2717,9 +2804,7 @@ def register_callbacks(app, wales_df, wales_df_long):
                 overall_direction = "no clear"
 
             if len(site_stats) == 1:
-                insight = (
-                    f"There is a {strength} {strongest_direction} relationship (r = {round(strongest_r, 2)}) between the pollutant {pollutant_label} and temperature."
-                )
+                insight = f"There is a {strength} {strongest_direction} relationship (r = {round(strongest_r, 2)}) between the pollutant {pollutant_label} and temperature."
 
             elif overall_direction == "mixed":
                 if len(site_stats) <= 3:
@@ -2752,22 +2837,14 @@ def register_callbacks(app, wales_df, wales_df_long):
                     elif len(descriptions) == 2:
                         text = f"{descriptions[0]} and {descriptions[1]}."
                     else:
-                        text = (
-                            f"{descriptions[0]}, {descriptions[1]} and {descriptions[2]}."
-                        )
+                        text = f"{descriptions[0]}, {descriptions[1]} and {descriptions[2]}."
 
-                    insight = (
-                        f"Across the selected sites, the relationship between temperature and {pollutant_label} is mixed. {text}"
-                    )
+                    insight = f"Across the selected sites, the relationship between temperature and {pollutant_label} is mixed. {text}"
                 else:
-                    insight = (
-                        f"Across the selected sites, the relationship between temperature and {pollutant_label} is mixed, with some sites showing positive relationships and others showing negative ones. The strongest relationship is at {strongest_site} (r = {round(strongest_r, 2)})."
-                    )
+                    insight = f"Across the selected sites, the relationship between temperature and {pollutant_label} is mixed, with some sites showing positive relationships and others showing negative ones. The strongest relationship is at {strongest_site} (r = {round(strongest_r, 2)})."
 
             else:
-                insight = (
-                    f"Across the selected sites, {pollutant_label} has an average {strength} {overall_direction} relationship with temperature. The strongest relationship is at {strongest_site} (r = {round(strongest_r, 2)})."
-                )
+                insight = f"Across the selected sites, {pollutant_label} has an average {strength} {overall_direction} relationship with temperature. The strongest relationship is at {strongest_site} (r = {round(strongest_r, 2)})."
             fig.update_traces(
                 marker=dict(size=8),
                 selector=dict(mode="markers"),
@@ -2801,7 +2878,7 @@ def register_callbacks(app, wales_df, wales_df_long):
                     className="insight-inline",
                 ),
                 className="insight-box",
-            )
+            ),
         )
 
     @app.callback(
@@ -2834,8 +2911,10 @@ def register_callbacks(app, wales_df, wales_df_long):
                 ],
                 html.Div(
                     html.P(
-                        [html.Strong(
-                            "Insights: "), "Select site(s) and a date range to generate a heatmap summary."],
+                        [
+                            html.Strong("Insights: "),
+                            "Select site(s) and a date range to generate a heatmap summary.",
+                        ],
                         className="insight-inline",
                     ),
                     className="insight-box",
@@ -2843,8 +2922,9 @@ def register_callbacks(app, wales_df, wales_df_long):
             )
 
         start_dt = pd.to_datetime(start_date)
-        end_dt = pd.to_datetime(end_date) + \
-            pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+        end_dt = (
+            pd.to_datetime(end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+        )
 
         if dq == "Ratified":
             end_dt = min(end_dt, RATIFIED_CUTOFF)
@@ -2855,9 +2935,9 @@ def register_callbacks(app, wales_df, wales_df_long):
 
         for site in selected_sites:
             dff = wales_df[
-                (wales_df["site"] == site) &
-                (wales_df["date"] >= start_dt) &
-                (wales_df["date"] <= end_dt)
+                (wales_df["site"] == site)
+                & (wales_df["date"] >= start_dt)
+                & (wales_df["date"] <= end_dt)
             ].copy()
 
             cols = ["NO2", "PM2.5", "PM10", "O3", "SO2", "temp"]
@@ -2867,8 +2947,9 @@ def register_callbacks(app, wales_df, wales_df_long):
                 content = html.Div(
                     className="empty-panel comparison-site-empty",
                     children=[
-                        html.Div("Insufficient variables",
-                                 className="empty-panel-title"),
+                        html.Div(
+                            "Insufficient variables", className="empty-panel-title"
+                        ),
                         html.Div(
                             "At least two variables are required to calculate correlations.",
                             className="empty-panel-text",
@@ -2884,8 +2965,9 @@ def register_callbacks(app, wales_df, wales_df_long):
                     content = html.Div(
                         className="empty-panel comparison-site-empty",
                         children=[
-                            html.Div("No data available",
-                                     className="empty-panel-title"),
+                            html.Div(
+                                "No data available", className="empty-panel-title"
+                            ),
                             html.Div(
                                 "No valid observations were available for correlation analysis.",
                                 className="empty-panel-text",
@@ -2901,7 +2983,7 @@ def register_callbacks(app, wales_df, wales_df_long):
                     max_pairs = []
                     min_pairs = []
                     for i in range(len(cols)):
-                        for j in range(i+1, len(cols)):
+                        for j in range(i + 1, len(cols)):
                             value = corr.iloc[i, j]
                             if pd.notna(value):
                                 if value > 0:
@@ -2920,13 +3002,22 @@ def register_callbacks(app, wales_df, wales_df_long):
 
                     if max_corr is not None or min_corr is not None:
                         site_results.append(
-                            {'site': site, 'max_corr': max_corr, 'max_pairs': max_pairs, 'min_corr': min_corr, 'min_pairs': min_pairs})
+                            {
+                                "site": site,
+                                "max_corr": max_corr,
+                                "max_pairs": max_pairs,
+                                "min_corr": min_corr,
+                                "min_pairs": min_pairs,
+                            }
+                        )
                     if corr.isna().all().all():
                         content = html.Div(
                             className="empty-panel comparison-site-empty",
                             children=[
-                                html.Div("Correlation unavailable",
-                                         className="empty-panel-title"),
+                                html.Div(
+                                    "Correlation unavailable",
+                                    className="empty-panel-title",
+                                ),
                                 html.Div(
                                     "Correlation could not be computed from the selected data.",
                                     className="empty-panel-text",
@@ -2936,10 +3027,8 @@ def register_callbacks(app, wales_df, wales_df_long):
                         subtitle = "Correlation matrix unavailable."
 
                     else:
-                        rename_map = {
-                            **POLLUTANT_DISPLAY_NAMES, "temp": "Temp"}
-                        corr = corr.rename(
-                            index=rename_map, columns=rename_map)
+                        rename_map = {**POLLUTANT_DISPLAY_NAMES, "temp": "Temp"}
+                        corr = corr.rename(index=rename_map, columns=rename_map)
 
                         show_text = ".2f"
                         graph_height = 360 if not multi_site else 300
@@ -3003,17 +3092,18 @@ def register_callbacks(app, wales_df, wales_df_long):
                             automargin=True,
                         )
 
-                        subtitle = (None if multi_site
-                                    else f"Pollutant and temperature relationships within {site}."
-                                    )
+                        subtitle = (
+                            None
+                            if multi_site
+                            else f"Pollutant and temperature relationships within {site}."
+                        )
 
                         content = dcc.Graph(
                             figure=fig,
                             className="comparison-site-graph",
                             style={"height": f"{graph_height}px"},
                             responsive=True,
-                            config={"displayModeBar": True,
-                                    "displaylogo": False},
+                            config={"displayModeBar": True, "displaylogo": False},
                         )
 
             children.append(
@@ -3023,10 +3113,10 @@ def register_callbacks(app, wales_df, wales_df_long):
                         html.Div(
                             className="comparison-site-card-header",
                             children=[
+                                html.Div(site, className="comparison-site-title"),
                                 html.Div(
-                                    site, className="comparison-site-title"),
-                                html.Div(
-                                    subtitle, className="comparison-site-subtitle"),
+                                    subtitle, className="comparison-site-subtitle"
+                                ),
                             ],
                         ),
                         content,
@@ -3041,35 +3131,48 @@ def register_callbacks(app, wales_df, wales_df_long):
             negative_pairs = None
             if result["max_corr"] is not None:
                 positive_pairs = ", ".join(
-                    f"{'Temp' if v1 == 'temp' else POLLUTANT_DISPLAY_NAMES.get(v1, v1) and 'Temp' if v2 == 'temp' else POLLUTANT_DISPLAY_NAMES.get(v2, v2)}" for v1, v2 in result["max_pairs"])
+                    f"{'Temp' if v1 == 'temp' else POLLUTANT_DISPLAY_NAMES.get(v1, v1) and 'Temp' if v2 == 'temp' else POLLUTANT_DISPLAY_NAMES.get(v2, v2)}"
+                    for v1, v2 in result["max_pairs"]
+                )
             if result["min_corr"] is not None:
                 negative_pairs = ", ".join(
-                    f"{'Temp' if v1 == 'temp' else POLLUTANT_DISPLAY_NAMES.get(v1, v1) and 'Temp' if v2 == 'temp' else POLLUTANT_DISPLAY_NAMES.get(v2, v2)}" for v1, v2 in result["min_pairs"])
+                    f"{'Temp' if v1 == 'temp' else POLLUTANT_DISPLAY_NAMES.get(v1, v1) and 'Temp' if v2 == 'temp' else POLLUTANT_DISPLAY_NAMES.get(v2, v2)}"
+                    for v1, v2 in result["min_pairs"]
+                )
 
             if result["max_corr"] is not None and result["min_corr"] is not None:
-                insight = (f"At {result['site']}, the strongest positive relationship is between {positive_pairs} (r= {round(result['max_corr'], 2)}), while the strongest negative relationship is between {negative_pairs} (r = {round(result['min_corr'], 2)})")
+                insight = f"At {result['site']}, the strongest positive relationship is between {positive_pairs} (r= {round(result['max_corr'], 2)}), while the strongest negative relationship is between {negative_pairs} (r = {round(result['min_corr'], 2)})"
             elif result["max_corr"] is not None:
-                insight = (
-                    f"At {result['site']}, the strongest positive relationship is between {positive_pairs} (r={round(result['max_corr'], 2)}).")
+                insight = f"At {result['site']}, the strongest positive relationship is between {positive_pairs} (r={round(result['max_corr'], 2)})."
 
         else:
             strongest_positive = None
             strongest_negative = None
             for result in site_results:
                 if result["max_corr"] is not None:
-                    if strongest_positive is None or result["max_corr"] > strongest_positive["max_corr"]:
+                    if (
+                        strongest_positive is None
+                        or result["max_corr"] > strongest_positive["max_corr"]
+                    ):
                         strongest_positive = result
                 if result["min_corr"] is not None:
-                    if strongest_negative is None or result["min_corr"] < strongest_negative["min_corr"]:
+                    if (
+                        strongest_negative is None
+                        or result["min_corr"] < strongest_negative["min_corr"]
+                    ):
                         strongest_negative = result
                 positive_pairs = None
                 negative_pairs = None
                 if strongest_positive is not None:
                     positive_pairs = ", ".join(
-                        f"{'Temp' if v1 == 'temp' else POLLUTANT_DISPLAY_NAMES.get(v1, v1)} and {'Temp' if v2 == 'temp' else POLLUTANT_DISPLAY_NAMES.get(v2, v2)}" for v1, v2 in result["max_pairs"])
+                        f"{'Temp' if v1 == 'temp' else POLLUTANT_DISPLAY_NAMES.get(v1, v1)} and {'Temp' if v2 == 'temp' else POLLUTANT_DISPLAY_NAMES.get(v2, v2)}"
+                        for v1, v2 in result["max_pairs"]
+                    )
                 if strongest_negative is not None:
                     negative_pairs = ", ".join(
-                        f"{'Temp' if v1 == 'temp' else POLLUTANT_DISPLAY_NAMES.get(v1, v1)} and {'Temp' if v2 == 'temp' else POLLUTANT_DISPLAY_NAMES.get(v2, v2)}" for v1, v2 in result["min_pairs"])
+                        f"{'Temp' if v1 == 'temp' else POLLUTANT_DISPLAY_NAMES.get(v1, v1)} and {'Temp' if v2 == 'temp' else POLLUTANT_DISPLAY_NAMES.get(v2, v2)}"
+                        for v1, v2 in result["min_pairs"]
+                    )
 
                 if strongest_positive is not None and strongest_negative is not None:
                     insight = f"Across the selected sites, the strongest positive {positive_pairs} at {strongest_positive['site']} (r={round(strongest_positive['max_corr'], 2)}), while the strongest negative relationship is between {negative_pairs} at {strongest_negative['site']} (r = {round(strongest_negative['min_corr'], 2)})."
@@ -3081,13 +3184,15 @@ def register_callbacks(app, wales_df, wales_df_long):
                 else:
                     insight = "There is no clear heatmap insight available for the selected sites."
 
-        return (children, html.Div(
-            html.P(
-                [html.Strong("Insights: "), insight],
-                className="insight-inline",
+        return (
+            children,
+            html.Div(
+                html.P(
+                    [html.Strong("Insights: "), insight],
+                    className="insight-inline",
+                ),
+                className="insight-box",
             ),
-            className="insight-box"
-        ),
         )
 
     # ────────────────────────────────────────────────────────────
@@ -3140,35 +3245,42 @@ def register_callbacks(app, wales_df, wales_df_long):
         return base_cls, _BTN_BASE, base_cls, _BTN_BASE, base_cls, _BTN_BASE
 
     @app.callback(
-        Output('date-controls', 'style'),
-        Output('year-wrapper', 'style'),
-        Output("main-site-wrapper", 'style'),
-        Output("forecast-site-wrapper", 'style'),
+        Output("date-controls", "style"),
+        Output("year-wrapper", "style"),
+        Output("main-site-wrapper", "style"),
+        Output("forecast-site-wrapper", "style"),
         Output("threshold-toggle-wrapper", "style"),
         Output("quality-toggle-wrapper", "style"),
-        Input('url', 'pathname'),
+        Input("url", "pathname"),
     )
     def toggle_side_bar_page(pathname):
         # Default visibility
-        date_style = {'display': 'block'}
-        year_style = {'display': 'none'}
-        main_site_style = {'display': 'block'}
-        forecast_site_style = {'display': 'none'}
-        threshold_toggle = {'display': 'block'}
-        quality_toggle = {'display': 'block'}
-        if pathname == '/':
-            threshold_toggle = {'display': 'none'}
-        elif pathname == '/comparison':
-            threshold_toggle = {'display': 'none'}
-        elif pathname == '/exceedance':
-            date_style = {'display': 'none'}
-            year_style = {'display': 'block'}
+        date_style = {"display": "block"}
+        year_style = {"display": "none"}
+        main_site_style = {"display": "block"}
+        forecast_site_style = {"display": "none"}
+        threshold_toggle = {"display": "block"}
+        quality_toggle = {"display": "block"}
+        if pathname == "/":
+            threshold_toggle = {"display": "none"}
+        elif pathname == "/comparison":
+            threshold_toggle = {"display": "none"}
+        elif pathname == "/exceedance":
+            date_style = {"display": "none"}
+            year_style = {"display": "block"}
 
-        elif pathname == '/forecast':
-            date_style = {'display': 'none'}
-            main_site_style = {'display': 'none'}
-            forecast_site_style = {'display': 'block'}
-            threshold_toggle = {'display': 'none'}
-            quality_toggle = {'display': 'none'}
+        elif pathname == "/forecast":
+            date_style = {"display": "none"}
+            main_site_style = {"display": "none"}
+            forecast_site_style = {"display": "block"}
+            threshold_toggle = {"display": "none"}
+            quality_toggle = {"display": "none"}
 
-        return date_style, year_style, main_site_style, forecast_site_style, threshold_toggle, quality_toggle
+        return (
+            date_style,
+            year_style,
+            main_site_style,
+            forecast_site_style,
+            threshold_toggle,
+            quality_toggle,
+        )
