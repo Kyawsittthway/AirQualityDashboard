@@ -2941,7 +2941,7 @@ def register_callbacks(app, wales_df, wales_df_long):
             ].copy()
 
             cols = ["NO2", "PM2.5", "PM10", "O3", "SO2", "temp"]
-            cols = [c for c in cols if c in dff.columns]
+            cols = [c for c in cols if c in dff.columns and dff[c].notna().sum() >= 2]
 
             if len(cols) < 2:
                 content = html.Div(
@@ -2961,6 +2961,11 @@ def register_callbacks(app, wales_df, wales_df_long):
             else:
                 corr_input = dff[cols].dropna(how="all")
 
+                valid_cols = [
+                    c for c in corr_input.columns
+                    if corr_input[c].notna().sum() >= 2 and corr_input[c].nunique(dropna=True) > 1
+                ]
+                corr_input = corr_input[valid_cols]
                 if corr_input.empty:
                     content = html.Div(
                         className="empty-panel comparison-site-empty",
@@ -2978,6 +2983,9 @@ def register_callbacks(app, wales_df, wales_df_long):
 
                 else:
                     corr = corr_input.corr()
+                    corr = corr.dropna(axis=0, how="all").dropna(axis=1, how="all")
+                    cols = list(corr.columns)
+                    
                     max_corr = None
                     min_corr = None
                     max_pairs = []
@@ -3038,7 +3046,7 @@ def register_callbacks(app, wales_df, wales_df_long):
                         fig = px.imshow(
                             corr,
                             text_auto=".2f",
-                            color_continuous_scale="RdBu_r",
+                            color_continuous_scale="RdBu",
                             zmin=-1,
                             zmax=1,
                             aspect="auto",
