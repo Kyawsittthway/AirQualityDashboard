@@ -141,21 +141,14 @@ pytest
 
 ## Dashboard Pages
 
-### Overview
+- **Overview** : Provides KPIs, temporal analysis, summary statistics, and data completeness
 
-Provides headline KPIs, pollutant trends, summary statistics, data completeness, and temporal analysis.
+- **Comparison** : Allows users to compare sites using temperature relationships, correlation heatmaps, and pollution rose charts.
 
-### Comparison
+- **Exceedance** : Checks pollutant values against UK and WHO standards and highlights yearly exceedance counts.
 
-Allows users to compare sites using temperature relationships, correlation heatmaps, and pollution rose charts.
+- **Forecast** : Provides a 7-day AQI forecast using historical pollutant data, weather features, and XGBoost-based prediction, supported by AI-generated explanations.
 
-### Exceedance
-
-Checks pollutant values against UK and WHO standards and highlights exceedance behaviour.
-
-### Forecast
-
-Provides a 7-day AQI forecast using historical pollutant data, weather features, and XGBoost-based prediction, supported by AI-generated explanations.
 
 ## Results
 
