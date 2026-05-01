@@ -131,12 +131,24 @@ Then open the local Dash URL shown in the terminal, usually:
 http://127.0.0.1:8050/
 ```
 
+
 ## Testing
 
 Run the test suite with:
 
 ```bash
 pytest
+```
+## Alternative method to run the dashboard: Github Codespaces
+
+```bash
+Visit https://aistudio.google.com/
+Create and copy google gemini api key
+Open main branch on codespace
+Go to terminal and run commands
+    1. pip install -r requirements.txt
+    2. export GEMINI_API_KEY="PASTE YOUR GOOGLE GEMINI API KEY HERE"
+    3. python src/app.py
 ```
 
 ## Dashboard Pages
